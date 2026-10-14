@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import re
 from pathlib import Path
@@ -8,6 +9,7 @@ import streamlit as st
 from fastapi.testclient import TestClient
 from streamlit.testing.v1 import AppTest
 
+import main
 import ui
 from main import app as api
 
@@ -26,8 +28,10 @@ def route(url):
 @pytest.fixture
 def app(monkeypatch):
     # Send the app's API calls to the in-process API instead of Render
-    monkeypatch.setattr(requests, "post", lambda url, json, timeout: api_client.post(route(url), json=json))
-    monkeypatch.setattr(requests, "get", lambda url, timeout: api_client.get(route(url)))
+    monkeypatch.setattr(requests, "post", lambda url, json, timeout, headers=None:
+                        api_client.post(route(url), json=json, headers=headers))
+    monkeypatch.setattr(requests, "get", lambda url, timeout, headers=None:
+                        api_client.get(route(url), headers=headers))
     st.cache_data.clear()
     at = AppTest.from_file("../app.py", default_timeout=60)
     at.run()
@@ -184,3 +188,50 @@ def test_moderate_note_only_on_moderate_dashboards(app):
         tier = next(s.value for s in app.subheader if " risk — " in s.value).split(" risk")[0]
         assert (note in all_text(app)) == (tier == "Moderate"), (patient["id"], tier)
         assert "below the average" not in all_text(app)
+
+
+# ---- mock sign-in and audit log ------------------------------------------------------
+
+ROLE_KEYS = {"staff-key": {"role": "discharge_staff", "user": "nurse-01"},
+             "auditor-key": {"role": "auditor", "user": "auditor-01"}}
+
+
+@pytest.fixture
+def keys(monkeypatch):
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, role_keys=ROLE_KEYS))
+    monkeypatch.setenv("STAFF_API_KEY", "staff-key")
+    monkeypatch.setenv("AUDITOR_API_KEY", "auditor-key")
+
+
+def sign_in(at, role):
+    at.selectbox(key="role").set_value(role).run()
+    assert not at.exception
+    return at
+
+
+def test_staff_dashboard_works_when_keys_are_required(keys, app, temporary_audit_log):
+    open_patient(app, TOP_PATIENT)
+    assert "High risk — about 7.0× the average readmission rate" in [s.value for s in app.subheader]
+    users = {json.loads(line)["user"] for line in temporary_audit_log.path.read_text(encoding="utf-8").splitlines()}
+    assert users == {"nurse-01"}
+
+
+def test_auditor_sees_the_audit_log_not_patients(keys, app):
+    open_patient(app, TOP_PATIENT)  # creates some log entries as staff
+    sign_in(app, "auditor")
+    assert app.title[0].value == "Audit log"
+    log = app.dataframe[0].value
+    assert {"nurse-01"} <= set(log["user"]) and "/explain" in set(log["endpoint"])
+    assert "Patient queue" not in [t.value for t in app.title]
+
+
+def test_audit_log_page_explains_when_keys_are_not_configured(app):
+    sign_in(app, "auditor")
+    assert app.title[0].value == "Audit log"
+    assert any("isn't available" in i.value for i in app.info)
+
+
+def test_switching_back_to_staff_shows_the_queue(app):
+    sign_in(app, "auditor")
+    sign_in(app, "discharge_staff")
+    assert app.title[0].value == "Patient queue"

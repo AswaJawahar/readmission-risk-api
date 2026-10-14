@@ -34,48 +34,73 @@ FOOTER = ("Advisory decision support for a student proof of concept. Built on de
 
 # ---- API client ------------------------------------------------------------
 
+def setting(name):
+    """A setting from the environment or Streamlit secrets (None if unset)."""
+    value = os.environ.get(name)
+    if not value:
+        try:
+            value = st.secrets.get(name)
+        except Exception:  # no secrets file
+            value = None
+    return value
+
+
 def api_url():
     """API_URL from the environment or Streamlit secrets, else the deployed API."""
-    url = os.environ.get("API_URL")
-    if not url:
-        try:
-            url = st.secrets.get("API_URL")
-        except Exception:  # no secrets file
-            url = None
-    return (url or DEFAULT_API_URL).rstrip("/")
+    return (setting("API_URL") or DEFAULT_API_URL).rstrip("/")
 
 
-def _post(path, payload):
+# Mock sign-in: each role's demo key (only needed when the API has ROLE_KEYS configured)
+ROLE_KEY_SETTINGS = {"discharge_staff": "STAFF_API_KEY", "auditor": "AUDITOR_API_KEY"}
+
+
+def role_key(role):
+    return setting(ROLE_KEY_SETTINGS[role])
+
+
+def _headers(key):
+    return {"X-API-Key": key} if key else {}
+
+
+def _post(path, payload, key=None):
     try:
-        response = requests.post(f"{api_url()}{path}", json=payload, timeout=90)
+        response = requests.post(f"{api_url()}{path}", json=payload, headers=_headers(key), timeout=90)
     except requests.RequestException as exc:
         return 0, {"detail": [{"type": "connection", "msg": f"Could not reach the API: {exc}"}]}
     return response.status_code, response.json()
 
 
-def _get(path):
-    response = requests.get(f"{api_url()}{path}", timeout=90)
-    response.raise_for_status()
-    return response.json()
+def _get(path, key=None):
+    response = requests.get(f"{api_url()}{path}", headers=_headers(key), timeout=90)
+    return response.status_code, response.json()
 
 
 @st.cache_data(ttl="10m", max_entries=200, show_spinner=False)
-def post(path, payload_json):
+def post(path, payload_json, key=None):
     """Cached POST; the payload is passed as JSON text so it hashes reliably."""
-    return _post(path, json.loads(payload_json))
+    return _post(path, json.loads(payload_json), key)
 
 
 @st.cache_data(ttl="1h", show_spinner=False)
 def get(path):
-    return _get(path)
+    status, body = _get(path)
+    if status != 200:
+        raise RuntimeError(f"GET {path} failed with HTTP {status}")
+    return body
+
+
+def audit_entries(limit=500):
+    """Not cached: the auditor should always see the latest entries."""
+    return _get(f"/audit?limit={limit}", role_key("auditor"))
 
 
 def explain(fields):
-    return post("/explain", json.dumps(fields, sort_keys=True))
+    return post("/explain", json.dumps(fields, sort_keys=True), role_key("discharge_staff"))
 
 
 def ask(fields, question=None):
-    return post("/assistant", json.dumps({"patient": fields, "question": question}, sort_keys=True))
+    return post("/assistant", json.dumps({"patient": fields, "question": question}, sort_keys=True),
+                role_key("discharge_staff"))
 
 
 def error_message(body):
@@ -98,8 +123,9 @@ def load_queue():
 def score_queue(patients_json):
     """Scores every queue patient through /predict (in parallel; Render can be slow)."""
     patients = json.loads(patients_json)
+    key = role_key("discharge_staff")
     with ThreadPoolExecutor(max_workers=8) as pool:
-        results = list(pool.map(lambda p: _post("/predict", p["fields"]), patients))
+        results = list(pool.map(lambda p: _post("/predict", p["fields"], key), patients))
     return results
 
 

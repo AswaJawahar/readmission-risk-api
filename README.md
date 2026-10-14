@@ -48,7 +48,7 @@ This result closely matches published benchmarks on this exact dataset (independ
 ```
 Streamlit app                 →  FastAPI (Render)                          →  Gradient Boosting model + SHAP
 (patient queue, dashboard,       /predict /explain /assistant                 curated knowledge base
- What-if, About the model)       /model-info /sources /assistant/config
+ What-if, About the model)       /model-info /sources /assistant/config /audit
 ```
 
 The API accepts 14 input fields, one-hot encodes them, and aligns the result to the model's 51 training columns with `reindex(columns=model_features, fill_value=0)`. Every model input comes from a field the caller sends.
@@ -163,6 +163,23 @@ Retrieval (`knowledge.py`) uses TF-IDF text similarity plus a boost for excerpts
 Each response includes the patient's risk, the items (`suggestion` or `context`, with the factor they relate to), the cited excerpts with their source, URL, quote and review status, and an advisory-only disclaimer. Citations from excerpts no reviewer has approved yet are labelled **"Source pending review"**.
 
 Settings come from environment variables or a gitignored `.env` file (see `.env.example`): `LLM_PROVIDER` (default `none`), `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT_SECONDS` (default 8) and `KB_REQUIRE_VERIFIED` (default `false`; set to `true` once the knowledge base is reviewed, so only approved excerpts are used). No real LLM provider is wired up yet; the LLM path is tested with a fake provider. `GET /assistant/config` shows the active mode and whether a key is set, never the key itself.
+
+## Audit logging and access (mock)
+
+**Audit log.** Every call to `/predict`, `/explain`, `/assistant` and `/audit` is recorded as one JSON line in `logs/audit.jsonl` (gitignored; `AUDIT_LOG_PATH` changes the location). Each entry holds metadata only: time (UTC), request ID (also returned in the `X-Request-ID` header), endpoint, HTTP status, latency, role and mock user, model version, risk tier, assistant mode and status, cited source IDs, question length, and validation error types. It never records patient field values, question text, IP addresses or keys; the log writer drops any field that isn't on its allow-list, and the tests check that patient values and question text never appear.
+
+**Mock roles.** Set `ROLE_KEYS` (see `.env.example`) to map demo keys, sent as an `X-API-Key` header, to a role and a mock user ID:
+
+| Endpoint | No `ROLE_KEYS` (current deployment) | With `ROLE_KEYS` |
+|---|---|---|
+| `/predict` | Open | Open (backward compatible) |
+| `/explain`, `/assistant` | Open, logged as `anonymous` | `discharge_staff` key required |
+| `/audit` | Unavailable (403) | `auditor` key required |
+| `/`, `/model-info`, `/sources`, `/assistant/config` | Open | Open |
+
+An unknown key is rejected with 401. In the Streamlit app, a "Signed in as (demo)" picker in the sidebar switches between discharge staff (patient queue, What-if, About) and auditor (Audit log, About); the app sends the role's key from `STAFF_API_KEY` or `AUDITOR_API_KEY` (environment or Streamlit secrets).
+
+**What this is not.** This is a mock for the proof of concept, not real security: the keys are shared demo tokens, the sign-in picker can be switched by anyone using the app, and there are no user accounts or passwords. Traffic is encrypted in transit only because Render and Streamlit Community Cloud serve over HTTPS. Logs are stored unencrypted on the API server's disk, and on Render's free tier they are lost whenever the service restarts or redeploys.
 
 ## Running the tests
 

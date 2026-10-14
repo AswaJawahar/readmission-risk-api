@@ -32,7 +32,7 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 | 4. Curated knowledge base, retrieval, review spreadsheet | Done, on master (all excerpts still `pending` review) |
 | 5. `/assistant`, grounded and cited, with guardrails | Done, on master (rule-based; no real LLM provider yet) |
 | 6. Streamlit redesign: patient queue, dashboard, What-if, About | Done, on master |
-| 7. Metadata-only audit logging and mock role-based access | Next |
+| 7. Metadata-only audit logging and mock role-based access | Built on `ai-discharge-support`, awaiting review |
 
 ## Key decisions
 
