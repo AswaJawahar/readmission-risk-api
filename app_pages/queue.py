@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from ui import (comparison, describe_patient, error_message, error_type, get, load_queue, render_dashboard,
-                score_queue)
+                score_queue, tier_cell_style)
 
 patients = load_queue()
 by_id = {p["id"]: p for p in patients}
@@ -56,11 +56,12 @@ for patient, (status, body) in zip(patients, results):
         "Patient": patient["id"],
         "Risk tier": tier,
         "Compared with average": compared,
+        "Score": None if score is None else score * 100,
         "Age group": describe_patient(fields, labels)["Age group"],
         "Primary diagnosis": "Not recorded" if fields["diag_1_group"] == "Missing" else fields["diag_1_group"],
-        "Discharge destination": labels.get(str(fields["discharge_disposition_id"]), "Unknown"),
-        "Days in hospital": fields["time_in_hospital"],
-        "Prior inpatient stays": fields["number_inpatient"],
+        "Discharge destination": describe_patient(fields, labels)["Discharge destination"],
+        "Stay (days)": fields["time_in_hospital"],
+        "Prior stays": fields["number_inpatient"],
         "_score": -1 if score is None else score,
     })
 
@@ -74,6 +75,17 @@ st.session_state.queue_ids = queue["Patient"].tolist()
 
 st.caption(f"{len(patients)} demo patients, highest risk first. Select a row to open the dashboard. "
            f"Average = the test-set 30-day readmission rate ({base_rate:.1%}).")
+# Tier cells are tinted with the tier colour (text label kept); colours come from assets/style.css.
+# st.dataframe can't colour bars per row, so the score bar uses one neutral colour.
+styled = queue.style.map(tier_cell_style, subset=["Risk tier"])
 # Tall enough to show every row without an inner scrollbar
-st.dataframe(queue, hide_index=True, key=table_key, on_select=open_selected,
-             selection_mode="single-row", height=35 * (len(queue) + 1) + 3)
+st.dataframe(styled, hide_index=True, key=table_key, on_select=open_selected, placeholder="—",
+             selection_mode="single-row", height=35 * (len(queue) + 1) + 3, column_config={
+                 "Score": st.column_config.ProgressColumn("Score", format="%.0f%%", min_value=0, max_value=100,
+                                                          color="#64748b", width="small",
+                                                          help="Predicted 30-day readmission probability"),
+                 "Age group": st.column_config.TextColumn(width="small"),
+                 "Stay (days)": st.column_config.NumberColumn(width="small"),
+                 "Prior stays": st.column_config.NumberColumn(width="small",
+                                                              help="Inpatient stays in the year before this admission"),
+             })

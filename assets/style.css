@@ -1,0 +1,109 @@
+/* All custom styling for the Streamlit app. Colours are CSS variables with a light
+   set (.cp-light) and a dark set (.cp-dark); ui.py wraps each custom block in the
+   class for the active theme. Red is used only for the High tier. */
+
+.cp-light {
+  --cp-text: #1f2937;
+  --cp-muted: #4b5563;
+  --cp-surface: #ffffff;
+  --cp-track: #e5e7eb;
+  --cp-chip-bg: #eef2f7;
+  --cp-chip-text: #1f2937;
+  --cp-high-bg: #fdecec;  --cp-high-accent: #b91c1c;  --cp-high-text: #991b1b;
+  --cp-mod-bg: #fdf3dc;   --cp-mod-accent: #b45309;   --cp-mod-text: #8a3c06;
+  --cp-low-bg: #e3f6ea;   --cp-low-accent: #15803d;   --cp-low-text: #14532d;
+  --cp-oos-bg: #eef0f3;   --cp-oos-accent: #6b7280;   --cp-oos-text: #374151;
+  --cp-higher: #6d28d9;   --cp-lower: #0f766e;        --cp-minimal: #9ca3af;
+}
+
+.cp-dark {
+  --cp-text: #e5e7eb;
+  --cp-muted: #a7afbd;
+  --cp-surface: #1a1f2b;
+  --cp-track: #374151;
+  --cp-chip-bg: #263042;
+  --cp-chip-text: #e5e7eb;
+  --cp-high-bg: #3a1619;  --cp-high-accent: #f87171;  --cp-high-text: #fecaca;
+  --cp-mod-bg: #372a10;   --cp-mod-accent: #fbbf24;   --cp-mod-text: #fde68a;
+  --cp-low-bg: #10301e;   --cp-low-accent: #4ade80;   --cp-low-text: #bbf7d0;
+  --cp-oos-bg: #2a303b;   --cp-oos-accent: #9ca3af;   --cp-oos-text: #e5e7eb;
+  --cp-higher: #a78bfa;   --cp-lower: #2dd4bf;        --cp-minimal: #6b7280;
+}
+
+/* ---- patient header chips ---- */
+.cp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
+.cp-chip {
+  background: var(--cp-chip-bg); color: var(--cp-chip-text);
+  border-radius: 999px; padding: 3px 10px; font-size: 0.82rem; line-height: 1.4;
+}
+.cp-chip b { font-weight: 600; }
+
+/* ---- tier badge (always text-labelled) ---- */
+.cp-badge {
+  display: inline-block; border-radius: 6px; padding: 2px 9px;
+  font-size: 0.78rem; font-weight: 700; letter-spacing: 0.02em;
+}
+.cp-tier-high .cp-badge { background: var(--cp-high-accent); color: var(--cp-surface); }
+.cp-tier-moderate .cp-badge { background: var(--cp-mod-accent); color: var(--cp-surface); }
+.cp-tier-low .cp-badge { background: var(--cp-low-accent); color: var(--cp-surface); }
+.cp-tier-oos .cp-badge { background: var(--cp-oos-accent); color: var(--cp-surface); }
+
+/* ---- risk card ---- */
+.cp-risk {
+  border-radius: 10px; padding: 14px 16px 12px; border-left: 6px solid;
+  color: var(--cp-text);
+}
+.cp-tier-high.cp-risk { background: var(--cp-high-bg); border-color: var(--cp-high-accent); }
+.cp-tier-moderate.cp-risk { background: var(--cp-mod-bg); border-color: var(--cp-mod-accent); }
+.cp-tier-low.cp-risk { background: var(--cp-low-bg); border-color: var(--cp-low-accent); }
+.cp-risk-title { font-size: 0.85rem; font-weight: 600; color: var(--cp-muted); margin-bottom: 6px; }
+.cp-risk-headline { font-size: 1.15rem; font-weight: 700; margin: 8px 0 2px; }
+.cp-tier-high .cp-risk-headline { color: var(--cp-high-text); }
+.cp-tier-moderate .cp-risk-headline { color: var(--cp-mod-text); }
+.cp-tier-low .cp-risk-headline { color: var(--cp-low-text); }
+.cp-multiple { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 2px; }
+.cp-multiple-value { font-size: 2.6rem; font-weight: 800; line-height: 1.05; }
+.cp-tier-high .cp-multiple-value { color: var(--cp-high-text); }
+.cp-tier-moderate .cp-multiple-value { color: var(--cp-mod-text); }
+.cp-tier-low .cp-multiple-value { color: var(--cp-low-text); }
+.cp-multiple-label { font-size: 0.95rem; color: var(--cp-text); }
+.cp-scope { font-size: 0.85rem; color: var(--cp-muted); margin-bottom: 10px; }
+
+/* percentile bar: three tier segments with a marker at the patient's percentile */
+.cp-pbar { position: relative; height: 12px; display: flex; border-radius: 6px; overflow: visible; margin: 18px 0 4px; }
+.cp-pbar-seg { height: 100%; }
+.cp-pbar-seg.low { background: var(--cp-low-accent); opacity: 0.55; border-radius: 6px 0 0 6px; }
+.cp-pbar-seg.moderate { background: var(--cp-mod-accent); opacity: 0.55; }
+.cp-pbar-seg.high { background: var(--cp-high-accent); opacity: 0.55; border-radius: 0 6px 6px 0; }
+.cp-pbar-marker {
+  position: absolute; top: -6px; width: 4px; height: 24px; margin-left: -2px;
+  background: var(--cp-text); border-radius: 2px; box-shadow: 0 0 0 2px var(--cp-surface);
+}
+.cp-pbar-labels { display: flex; font-size: 0.72rem; color: var(--cp-muted); }
+.cp-pbar-labels span { text-align: center; }
+.cp-risk-foot { font-size: 0.8rem; color: var(--cp-muted); margin-top: 10px; line-height: 1.5; }
+
+/* out-of-scope card */
+.cp-tier-oos.cp-risk { background: var(--cp-oos-bg); border-color: var(--cp-oos-accent); }
+.cp-tier-oos .cp-risk-headline { color: var(--cp-oos-text); }
+
+/* ---- factor bars ---- */
+.cp-factors { color: var(--cp-text); }
+.cp-factor { display: grid; grid-template-columns: minmax(0, 1fr) 7.5rem 2.8rem; gap: 10px; align-items: center; padding: 5px 0; }
+.cp-factor-name { font-size: 0.86rem; line-height: 1.3; }
+.cp-factor-dir { font-size: 0.72rem; font-weight: 600; }
+.cp-factor-bar { height: 8px; border-radius: 4px; background: var(--cp-track); overflow: hidden; margin-top: 3px; }
+.cp-factor-fill { height: 100%; border-radius: 4px; }
+.cp-dir-higher .cp-factor-dir { color: var(--cp-higher); }
+.cp-dir-higher .cp-factor-fill { background: var(--cp-higher); }
+.cp-dir-lower .cp-factor-dir { color: var(--cp-lower); }
+.cp-dir-lower .cp-factor-fill { background: var(--cp-lower); }
+.cp-dir-minimal .cp-factor-dir { color: var(--cp-muted); }
+.cp-dir-minimal .cp-factor-fill { background: var(--cp-minimal); }
+.cp-factor-share { font-size: 0.82rem; text-align: right; font-variant-numeric: tabular-nums; }
+.cp-factor-note { font-size: 0.78rem; color: var(--cp-muted); margin-top: 8px; }
+
+/* ---- sidebar app name ---- */
+.cp-brand { padding: 2px 0 6px; }
+.cp-brand-name { font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em; }
+.cp-brand-tag { font-size: 0.75rem; opacity: 0.8; }

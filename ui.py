@@ -2,8 +2,10 @@
 
 Every number shown comes from the API (the live model and model_metadata.json).
 """
+import html
 import json
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -14,12 +16,21 @@ import streamlit as st
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_API_URL = "https://readmission-risk-api-oyvy.onrender.com"
 QUEUE_PATH = BASE_DIR / "demo" / "patient_queue.json"
+CSS_PATH = BASE_DIR / "assets" / "style.css"
 
-TIER_BADGE = {
-    "High": {"color": "red", "icon": ":material/priority_high:"},
-    "Moderate": {"color": "orange", "icon": ":material/trending_up:"},
-    "Low": {"color": "green", "icon": ":material/check:"},
-    "Out of scope": {"color": "gray", "icon": ":material/block:"},
+TIER_CLASS = {"High": "high", "Moderate": "moderate", "Low": "low", "Out of scope": "oos"}
+# CSS variable prefix for each tier in style.css
+TIER_VAR = {"High": "high", "Moderate": "mod", "Low": "low", "Out of scope": "oos"}
+# Short, plain labels for long discharge destinations. Display only: the API and the
+# model keep the dataset's own labels (reference/IDS_mapping.csv).
+SHORT_DISCHARGE = {
+    1: "Home", 2: "Another short-term hospital", 3: "Skilled nursing facility",
+    4: "Intermediate care facility", 5: "Other inpatient care", 6: "Home with home health",
+    7: "Left against medical advice", 8: "Home with IV provider", 11: "Expired",
+    13: "Hospice (home)", 14: "Hospice (medical facility)", 15: "Swing bed (same hospital)",
+    18: "Not recorded (code 18)", 19: "Expired at home (hospice)", 20: "Expired in a facility (hospice)",
+    21: "Expired, place unknown (hospice)", 22: "Rehab facility", 23: "Long-term care hospital",
+    25: "Not recorded (code 25)", 28: "Psychiatric hospital",
 }
 ASSOCIATION = {"higher": "Higher score", "lower": "Lower score", "minimal": "Little effect"}
 PRESET_QUESTIONS = [
@@ -156,10 +167,41 @@ def tier_scope(tier, percentiles):
     }[tier]
 
 
-def tier_badge(tier):
-    badge = TIER_BADGE[tier]
-    label = tier if tier == "Out of scope" else f"{tier} risk"
-    st.badge(label, icon=badge["icon"], color=badge["color"])
+# ---- styling ---------------------------------------------------------------
+
+def theme_class():
+    """'cp-dark' or 'cp-light', matching the viewer's active Streamlit theme."""
+    try:
+        return "cp-dark" if st.context.theme.type == "dark" else "cp-light"
+    except Exception:  # e.g. no browser context in tests
+        return "cp-light"
+
+
+@st.cache_data(show_spinner=False)
+def _css():
+    return CSS_PATH.read_text(encoding="utf-8")
+
+
+def inject_css():
+    st.html(f"<style>{_css()}</style>")
+
+
+def css_vars(theme):
+    """The --cp-* colour variables defined for `theme` ('cp-light' or 'cp-dark') in style.css."""
+    block = re.search(r"\." + theme + r"\s*\{(.*?)\}", _css(), re.S).group(1)
+    return dict(re.findall(r"--cp-([\w-]+):\s*([^;]+);", block))
+
+
+def esc(value):
+    return html.escape(str(value))
+
+
+def themed(body):
+    st.html(f'<div class="{theme_class()}">{body}</div>')
+
+
+def discharge_short(code, labels):
+    return SHORT_DISCHARGE.get(int(code), labels.get(str(code), str(code)))
 
 
 def md(text):
@@ -175,9 +217,87 @@ def describe_patient(fields, labels):
         "Length of stay": f"{fields['time_in_hospital']} days",
         "Prior inpatient stays": fields["number_inpatient"],
         "Primary diagnosis": "Not recorded" if fields["diag_1_group"] == "Missing" else fields["diag_1_group"],
-        "Discharge destination": labels.get(str(fields["discharge_disposition_id"]),
-                                            str(fields["discharge_disposition_id"])),
+        "Discharge destination": discharge_short(fields["discharge_disposition_id"], labels),
     }
+
+
+def patient_chips(source_label, facts):
+    chips = [f'<span class="cp-chip">{esc(source_label)}</span>']
+    chips += [f'<span class="cp-chip"><b>{esc(k)}:</b> {esc(v)}</span>' for k, v in facts.items()]
+    themed(f'<div class="cp-chips">{"".join(chips)}</div>')
+
+
+def risk_card(result, info, tier_row):
+    """Tier-coloured card: badge, large multiple, percentile bar, then the smaller details."""
+    tier, score = result["risk_tier"], result["readmission_risk_score"]
+    base_rate = info["performance"]["base_rate"]
+    pct = info["risk_tiers"]["percentiles"]
+    widths = {"low": pct["moderate"], "moderate": pct["high"] - pct["moderate"], "high": 100 - pct["high"]}
+    segments = "".join(f'<div class="cp-pbar-seg {k}" style="width:{w}%"></div>' for k, w in widths.items())
+    seg_labels = "".join(f'<span style="width:{w}%">{k.capitalize()}</span>' for k, w in widths.items())
+    marker_at = min(max(result["risk_percentile"], 1), 99)
+    details = [f"Score {score:.0%} (average: {base_rate:.0%})",
+               (f"Among the top 1% of test-set scores" if result["risk_percentile"] >= 99
+                else f"Higher than about {result['risk_percentile']}% of test-set patients"),
+               f"In the test set, {tier_row['readmission_rate']:.1%} of {tier.lower()}-risk patients "
+               f"were readmitted within 30 days."]
+    if tier == "Moderate":
+        details.append(moderate_note(info))
+    sentence = f"{tier} risk — {comparison(score, base_rate)}"
+    scope = tier_scope(tier, pct)
+    themed(f"""
+<div class="cp-risk cp-tier-{TIER_CLASS[tier]}">
+  <div class="cp-risk-title">30-day readmission risk</div>
+  <span class="cp-badge">{esc(tier)} risk</span>
+  <div class="cp-multiple" title="{esc(sentence)}">
+    <span class="cp-multiple-value">{score / base_rate:.1f}×</span>
+    <span class="cp-multiple-label">the average readmission rate</span>
+  </div>
+  <div class="cp-scope">{esc(scope[0].upper() + scope[1:])}</div>
+  <div class="cp-pbar" role="img" aria-label="Percentile {result['risk_percentile']} of test-set scores">
+    {segments}<div class="cp-pbar-marker" style="left:{marker_at}%"></div>
+  </div>
+  <div class="cp-pbar-labels">{seg_labels}</div>
+  <div class="cp-risk-foot">{"<br>".join(esc(d) for d in details)}</div>
+</div>""")
+
+
+def out_of_scope_card(message):
+    themed(f"""
+<div class="cp-risk cp-tier-oos">
+  <div class="cp-risk-title">30-day readmission risk</div>
+  <span class="cp-badge">Out of scope</span>
+  <div class="cp-risk-headline">No prediction is made for this patient</div>
+  <div class="cp-risk-foot">{esc(message)}<br>The assistant is not used for out-of-scope patients.</div>
+</div>""")
+
+
+def factor_bars(factors, labels):
+    rows = []
+    for f in factors[:6]:
+        description = f["description"]
+        if f["field"] == "discharge_disposition_id":
+            description = f"Discharge destination: {discharge_short(f['value'], labels)}"
+        rows.append(f"""
+<div class="cp-factor cp-dir-{f['direction']}">
+  <div><div class="cp-factor-name">{esc(description)}</div>
+       <div class="cp-factor-bar"><div class="cp-factor-fill" style="width:{f['share'] * 100:.0f}%"></div></div></div>
+  <div class="cp-factor-dir">{ASSOCIATION[f['direction']]}</div>
+  <div class="cp-factor-share">{f['share']:.0%}</div>
+</div>""")
+    themed(f"""<div class="cp-factors">{"".join(rows)}
+<div class="cp-factor-note">Bars show each factor's share of the explanation. These are associations in the
+model, not causes. Age, gender and race appear because the model uses them; they are not things discharge
+planning can change.</div></div>""")
+
+
+def tier_cell_style(tier):
+    """Background and text colour for a queue tier cell, from style.css for the active theme."""
+    var = TIER_VAR.get(tier)
+    if var is None:
+        return ""
+    colors = css_vars(theme_class())
+    return f"background-color: {colors[var + '-bg']}; color: {colors[var + '-text']}; font-weight: 600"
 
 
 # ---- dashboard -------------------------------------------------------------
@@ -186,20 +306,15 @@ def render_dashboard(title, source_label, fields, key):
     """The full dashboard for one patient. `key` keeps widget keys unique per patient."""
     info = get("/model-info")
     labels = info["discharge_codes"]["labels"]
-    base_rate = info["performance"]["base_rate"]
 
     st.subheader(title, anchor=False)
-    facts = describe_patient(fields, labels)
-    st.caption(f"{source_label} · " + " · ".join(f"{k}: {v}" for k, v in facts.items()))
+    patient_chips(source_label, describe_patient(fields, labels))
 
     with st.spinner("Scoring patient..."):
         status, result = explain(fields)
     if status != 200:
         if error_type(result) == "out_of_scope":
-            with st.container(border=True):
-                tier_badge("Out of scope")
-                st.warning(error_message(result), icon=":material/block:")
-                st.caption("The assistant is not used for out-of-scope patients.")
+            out_of_scope_card(error_message(result))
         else:
             st.error(error_message(result), icon=":material/error:")
         return
@@ -208,29 +323,12 @@ def render_dashboard(title, source_label, fields, key):
     tier_row = next(t for t in info["risk_tiers"]["tiers"] if t["tier"] == tier)
 
     left, right = st.columns(2)
-    with left.container(border=True, height="stretch"):
-        st.markdown("**30-day readmission risk**")
-        tier_badge(tier)
-        st.subheader(f"{tier} risk — {comparison(result['readmission_risk_score'], base_rate)}", anchor=False)
-        st.markdown(f"({tier_scope(tier, info['risk_tiers']['percentiles'])})")
-        st.caption(f"Score {result['readmission_risk_score']:.0%} (average: {base_rate:.0%})")
-        st.caption(f"In the test set, {tier_row['readmission_rate']:.1%} of {tier.lower()}-risk patients "
-                   f"were readmitted within 30 days.")
-        if tier == "Moderate":
-            st.caption(moderate_note(info))
+    with left:
+        risk_card(result, info, tier_row)
 
     with right.container(border=True, height="stretch"):
         st.markdown("**What the score is based on**")
-        factors = pd.DataFrame([
-            {"Factor": f["description"], "Association": ASSOCIATION[f["direction"]], "Share": f["share"] * 100}
-            for f in result["factors"][:6]
-        ])
-        st.dataframe(factors, hide_index=True, column_config={
-            "Share": st.column_config.ProgressColumn("Share of explanation", format="%.0f%%",
-                                                     min_value=0, max_value=100),
-        })
-        st.caption("Associations in the model, not causes. Age, gender and race appear because the model "
-                   "uses them; they are not things discharge planning can change.")
+        factor_bars(result["factors"], labels)
 
     with st.container(border=True):
         st.markdown("**Summary**")

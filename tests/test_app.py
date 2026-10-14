@@ -46,10 +46,19 @@ def open_patient(at, patient_id):
     return at
 
 
+def html_blocks(at):
+    """Bodies of st.html blocks (risk card, factor bars, chips), excluding the stylesheet."""
+    return [e.proto.body for e in at.get("html") if not e.proto.body.lstrip().startswith("<style>")]
+
+
 def all_text(at):
-    parts = [m.value for m in at.markdown] + [c.value for c in at.caption]
+    parts = [m.value for m in at.markdown] + [c.value for c in at.caption] + html_blocks(at)
     parts += [e.value for kind in ("warning", "info", "error", "success") for e in at.get(kind)]
     return "\n".join(parts)
+
+
+def risk_card(at):
+    return next(b for b in html_blocks(at) if "cp-risk" in b)
 
 
 # ---- queue -----------------------------------------------------------------
@@ -62,7 +71,11 @@ def test_queue_is_the_main_screen_sorted_by_risk(app):
     assert queue.iloc[0]["Patient"] == TOP_PATIENT
     assert queue.iloc[-1]["Risk tier"] == "Out of scope"
     assert queue.iloc[0]["Compared with average"] == "about 7.0× the average"
-    assert set(queue.columns).isdisjoint({"_score", "Score"})
+    assert queue.iloc[0]["Score"] == pytest.approx(78.2)
+    assert "_score" not in queue.columns
+    # Short display labels for long discharge destinations
+    assert "Rehab facility" in set(queue["Discharge destination"])
+    assert not any(len(d) > 30 for d in queue["Discharge destination"])
 
 
 def test_tier_filter(app):
@@ -75,20 +88,26 @@ def test_tier_filter(app):
 
 def test_dashboard_leads_with_tier_and_comparison(app):
     open_patient(app, TOP_PATIENT)
-    text = all_text(app)
+    card = risk_card(app)
     assert f"Patient {TOP_PATIENT}" in [s.value for s in app.subheader]
-    assert "High risk — about 7.0× the average readmission rate" in [s.value for s in app.subheader]
-    assert "(top 10% of patients)" in text
-    assert "Score 78% (average: 11%)" in text
-    assert "26.7% of high-risk patients were readmitted" in text
+    assert "cp-tier-high" in card and '<span class="cp-badge">High risk</span>' in card
+    assert '<span class="cp-multiple-value">7.0×</span>' in card
+    # The full sentence is the multiple's hover text; the line under it is just the tier's scope
+    assert 'title="High risk — about 7.0× the average readmission rate"' in card
+    assert '<div class="cp-scope">Top 10% of patients</div>' in card
+    assert "Score 78% (average: 11%)" in card
+    assert "26.7% of high-risk patients were readmitted" in card
+    assert 'class="cp-pbar-marker" style="left:99%"' in card  # percentile 100, kept inside the bar
+    assert "Among the top 1% of test-set scores" in card and "about 100%" not in card
 
 
 def test_dashboard_factors_use_association_wording(app):
     open_patient(app, TOP_PATIENT)
-    factors = app.dataframe[0].value
-    assert factors.iloc[0]["Factor"] == "9 inpatient stays in the year before this admission"
-    assert factors.iloc[0]["Association"] == "Higher score"
-    assert set(factors["Association"]) <= {"Higher score", "Lower score", "Little effect"}
+    bars = next(b for b in html_blocks(app) if "cp-factors" in b)
+    first = bars.split('<div class="cp-factor ')[1]
+    assert first.startswith("cp-dir-higher") and "9 inpatient stays in the year before this admission" in first
+    assert ">Higher score<" in first and 'style="width:55%"' in first
+    assert "Discharge destination: Home" in bars  # short display label
     text = all_text(app)
     assert "most associated with a higher score" in text
     assert not re.search(r"\b(raises|lowers) risk\b", text, re.IGNORECASE)
@@ -119,7 +138,9 @@ def test_out_of_scope_question_is_refused(app):
 
 def test_hospice_case_shows_the_out_of_scope_guardrail(app):
     open_patient(app, HOSPICE_PATIENT)
-    assert any("expired or went to hospice" in w.value for w in app.warning)
+    card = risk_card(app)
+    assert "cp-tier-oos" in card and '<span class="cp-badge">Out of scope</span>' in card
+    assert "expired or went to hospice" in card and "No prediction is made for this patient" in card
     text = all_text(app)
     assert "Hand-made demo case" in text and "Discharge-planning considerations" not in text
 
@@ -139,7 +160,7 @@ def test_what_if_tab(app):
     assert next(s for s in app.selectbox if s.label == "Gender").options == ["Female", "Male"]
     next(b for b in app.button if b.label == "Show results").click().run()
     text = all_text(app)
-    assert "Low risk — about 0.6× the average readmission rate" in [s.value for s in app.subheader]
+    assert "Low risk — about 0.6× the average readmission rate" in risk_card(app)
     assert "Score 7% (average: 11%)" in text
 
 
@@ -148,7 +169,7 @@ def test_what_if_hospice_disposition_is_out_of_scope(app):
     discharge = next(s for s in app.selectbox if s.label == "Discharge disposition")
     discharge.select_index(discharge.options.index("Expired")).run()
     next(b for b in app.button if b.label == "Show results").click().run()
-    assert any("no prediction is made" in w.value for w in app.warning)
+    assert "no prediction is made" in risk_card(app)
 
 
 def test_about_page(app):
@@ -175,7 +196,7 @@ def test_comparison_wording():
 
 
 def test_no_compliance_claims_in_the_ui():
-    for path in [ROOT / "app.py", ROOT / "ui.py", *(ROOT / "app_pages").glob("*.py")]:
+    for path in [ROOT / "app.py", ROOT / "ui.py", *(ROOT / "app_pages").glob("*.py"), *(ROOT / "assets").glob("*")]:
         assert "hipaa" not in path.read_text(encoding="utf-8").lower(), path.name
 
 
@@ -185,8 +206,9 @@ def test_moderate_note_only_on_moderate_dashboards(app):
         if patient["source"] != "test_set":
             continue
         open_patient(app, patient["id"])
-        tier = next(s.value for s in app.subheader if " risk — " in s.value).split(" risk")[0]
-        assert (note in all_text(app)) == (tier == "Moderate"), (patient["id"], tier)
+        card = risk_card(app)
+        tier = next(t for t in ("High", "Moderate", "Low") if f"cp-tier-{t.lower()}" in card)
+        assert (note in card) == (tier == "Moderate"), (patient["id"], tier)
         assert "below the average" not in all_text(app)
 
 
@@ -211,7 +233,7 @@ def sign_in(at, role):
 
 def test_staff_dashboard_works_when_keys_are_required(keys, app, temporary_audit_log):
     open_patient(app, TOP_PATIENT)
-    assert "High risk — about 7.0× the average readmission rate" in [s.value for s in app.subheader]
+    assert "High risk — about 7.0× the average readmission rate" in risk_card(app)
     users = {json.loads(line)["user"] for line in temporary_audit_log.path.read_text(encoding="utf-8").splitlines()}
     assert users == {"nurse-01"}
 
@@ -235,3 +257,57 @@ def test_switching_back_to_staff_shows_the_queue(app):
     sign_in(app, "auditor")
     sign_in(app, "discharge_staff")
     assert app.title[0].value == "Patient queue"
+
+
+# ---- styling ---------------------------------------------------------------------------
+
+def test_every_discharge_code_has_a_short_label():
+    labels = main.metadata["discharge_codes"]["labels"]
+    for code in labels:
+        short = ui.discharge_short(code, labels)
+        assert short in ui.SHORT_DISCHARGE.values() and len(short) <= 34, code
+
+
+def test_light_and_dark_palettes_define_the_same_colours():
+    light, dark = ui.css_vars("cp-light"), ui.css_vars("cp-dark")
+    assert set(light) == set(dark) and len(light) > 20
+
+
+def test_red_is_only_used_for_the_high_tier():
+    for theme in ("cp-light", "cp-dark"):
+        colours = ui.css_vars(theme)
+        high = {v for k, v in colours.items() if k.startswith("high-")}
+        assert all(v not in high for k, v in colours.items() if not k.startswith("high-")), theme
+
+
+def test_queue_tier_cells_use_the_stylesheet_colours():
+    light = ui.css_vars("cp-light")
+    assert ui.tier_cell_style("High") == (f"background-color: {light['high-bg']}; "
+                                          f"color: {light['high-text']}; font-weight: 600")
+    assert ui.tier_cell_style("Error") == ""
+
+
+def test_every_tier_badge_is_text_labelled(app):
+    for patient_id in (TOP_PATIENT, HOSPICE_PATIENT):
+        open_patient(app, patient_id)
+        badge = risk_card(app).split('<span class="cp-badge">')[1].split("</span>")[0]
+        assert badge in {"High risk", "Moderate risk", "Low risk", "Out of scope"}
+
+
+def test_scope_line_is_tier_specific(app):
+    expected = {"High": "Top 10% of patients",
+                "Moderate": "Between the 50th and 90th percentile of patients",
+                "Low": "Lower 50% of patients"}
+    seen = set()
+    for patient in QUEUE:
+        if patient["source"] != "test_set":
+            continue
+        open_patient(app, patient["id"])
+        card = risk_card(app)
+        tier = next(t for t in expected if f"cp-tier-{t.lower()}" in card)
+        if tier not in seen:
+            assert f'<div class="cp-scope">{expected[tier]}</div>' in card, tier
+            seen.add(tier)
+        if seen == set(expected):
+            break
+    assert seen == set(expected)

@@ -69,7 +69,7 @@ uvicorn main:app --port 8000
 API_URL=http://127.0.0.1:8000 streamlit run app.py
 ```
 
-`.streamlit/config.toml` sets a neutral blue accent so bars and controls don't read as alerts; tier badges always pair a colour with a text label and icon.
+**Themes.** `.streamlit/config.toml` defines a light theme (light main area, dark navy sidebar) and a dark theme; the app follows the viewer's system setting, and either can be chosen in the app's settings menu. Custom styling lives in one file, `assets/style.css`, with a light and a dark colour set; every text colour was checked for at least 4.5:1 contrast against its background in both modes. Red is used only for the High tier, every tier badge carries its text label, and factor bars are violet (associated with a higher score) or teal (lower), each with the direction written beside it. Long discharge destinations are shown with short labels (display only; the API keeps the dataset's labels). The queue's score bars use one neutral colour because `st.dataframe` can't colour bars per row; the tier colour is on the labelled tier cell instead.
 
 ## Input validation
 

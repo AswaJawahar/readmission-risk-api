@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="236" height="40" viewBox="0 0 236 40">
+  <rect x="1" y="3" width="34" height="34" rx="8" fill="#2563eb"/>
+  <path d="M14 10h8v8h8v8h-8v8h-8v-8H6v-8h8z" fill="#ffffff"/>
+  <text x="44" y="27" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#e8eef7">Discharge Support</text>
+</svg>

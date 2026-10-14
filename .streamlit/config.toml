@@ -1,3 +1,59 @@
+# Light main area with a dark navy sidebar (as in the mockup), plus a dark mode.
+# Every text colour below was checked for at least 4.5:1 contrast against its background.
+# Red, orange and green drive the tier badges: red is reserved for the High tier.
+
 [theme]
-# Neutral blue accent so bars and pills do not read as alerts; red is kept for the High-risk badge
-primaryColor = "#2563EB"
+baseRadius = "8px"
+showSidebarBorder = false
+
+[theme.light]
+primaryColor = "#2563eb"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f3f6fa"
+textColor = "#1f2937"
+borderColor = "#dfe5ee"
+redColor = "#b91c1c"
+redBackgroundColor = "#fdecec"
+redTextColor = "#991b1b"
+orangeColor = "#b45309"
+orangeBackgroundColor = "#fdf3dc"
+orangeTextColor = "#8a3c06"
+greenColor = "#15803d"
+greenBackgroundColor = "#e3f6ea"
+greenTextColor = "#14532d"
+grayColor = "#6b7280"
+grayBackgroundColor = "#eef0f3"
+grayTextColor = "#374151"
+
+[theme.light.sidebar]
+backgroundColor = "#0f2747"
+secondaryBackgroundColor = "#1b3a63"
+textColor = "#e8eef7"
+primaryColor = "#8ab4ff"
+borderColor = "#2a4a75"
+
+[theme.dark]
+primaryColor = "#60a5fa"
+backgroundColor = "#0f141c"
+secondaryBackgroundColor = "#1a1f2b"
+textColor = "#e5e7eb"
+borderColor = "#2c3442"
+redColor = "#f87171"
+redBackgroundColor = "#3a1619"
+redTextColor = "#fecaca"
+orangeColor = "#fbbf24"
+orangeBackgroundColor = "#372a10"
+orangeTextColor = "#fde68a"
+greenColor = "#4ade80"
+greenBackgroundColor = "#10301e"
+greenTextColor = "#bbf7d0"
+grayColor = "#9ca3af"
+grayBackgroundColor = "#2a303b"
+grayTextColor = "#e5e7eb"
+
+[theme.dark.sidebar]
+backgroundColor = "#0a1628"
+secondaryBackgroundColor = "#16294a"
+textColor = "#e8eef7"
+primaryColor = "#8ab4ff"
+borderColor = "#22385e"
