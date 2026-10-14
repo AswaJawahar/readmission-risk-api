@@ -107,12 +107,17 @@ def score_queue(patients_json):
 
 def comparison(score, base_rate):
     """The score relative to the test-set readmission rate, e.g. 'about 1.7× the average readmission rate'."""
-    ratio = score / base_rate
-    if ratio >= 1.05:
-        return f"about {ratio:.1f}× the average readmission rate"
-    if ratio > 0.95:
-        return "about the average readmission rate"
-    return f"below the average readmission rate (about {ratio:.1f}×)"
+    # Always the plain multiple: "below the average" read oddly next to a Moderate tier
+    return f"about {score / base_rate:.1f}× the average readmission rate"
+
+
+def moderate_note(info):
+    """Why a Moderate patient can be at or just under 1.0×: the tier starts at the median score."""
+    start = info["risk_tiers"]["cutoffs"]["moderate"]
+    median = info["risk_tiers"]["percentiles"]["moderate"] == 50
+    where = "the median score" if median else f"the {info['risk_tiers']['percentiles']['moderate']}th percentile"
+    return (f"The Moderate tier starts at {where} ({start:.1%}), just below the "
+            f"{info['performance']['base_rate']:.1%} average readmission rate.")
 
 
 def tier_scope(tier, percentiles):
@@ -185,6 +190,8 @@ def render_dashboard(title, source_label, fields, key):
         st.caption(f"Score {result['readmission_risk_score']:.0%} (average: {base_rate:.0%})")
         st.caption(f"In the test set, {tier_row['readmission_rate']:.1%} of {tier.lower()}-risk patients "
                    f"were readmitted within 30 days.")
+        if tier == "Moderate":
+            st.caption(moderate_note(info))
 
     with right.container(border=True, height="stretch"):
         st.markdown("**What the score is based on**")

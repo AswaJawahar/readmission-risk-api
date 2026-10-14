@@ -97,7 +97,7 @@ Tiers are cut at the 50th and 90th percentiles of the model's scores on the test
 | Moderate | 0.1008 to below 0.188 | 7,919 | 13.0% |
 | High | 0.188 and above | 1,981 | 26.7% |
 
-The overall test-set readmission rate is 11.2%, so High-tier patients were readmitted at about 2.4 times that rate. Flagging the High tier catches 23.8% of readmissions (precision 26.7%, specificity 91.7%); flagging Moderate or High catches 70.3% (precision 15.7%). The cutoffs and the tier rates come from the same test set, so these rates describe that set rather than an independent validation.
+The overall test-set readmission rate is 11.2%, so High-tier patients were readmitted at about 2.4 times that rate. Note that the Moderate tier starts at the median score (10.1%), just below the 11.2% average readmission rate, so some Moderate patients score about 0.9–1.0× the average; Moderate dashboards say so. Flagging the High tier catches 23.8% of readmissions (precision 26.7%, specificity 91.7%); flagging Moderate or High catches 70.3% (precision 15.7%). The cutoffs and the tier rates come from the same test set, so these rates describe that set rather than an independent validation.
 
 `GET /model-info` returns these numbers along with AUC 0.664 (95% interval 0.650–0.677), a subgroup table, and the allowed input values. Subgroup results by age band, gender and race:
 

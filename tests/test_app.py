@@ -135,7 +135,7 @@ def test_what_if_tab(app):
     assert next(s for s in app.selectbox if s.label == "Gender").options == ["Female", "Male"]
     next(b for b in app.button if b.label == "Show results").click().run()
     text = all_text(app)
-    assert "Low risk — below the average readmission rate (about 0.6×)" in [s.value for s in app.subheader]
+    assert "Low risk — about 0.6× the average readmission rate" in [s.value for s in app.subheader]
     assert "Score 7% (average: 11%)" in text
 
 
@@ -166,10 +166,21 @@ def test_api_url_comes_from_the_environment(monkeypatch):
 
 def test_comparison_wording():
     assert ui.comparison(0.19, 0.112) == "about 1.7× the average readmission rate"
-    assert ui.comparison(0.11, 0.112) == "about the average readmission rate"
-    assert ui.comparison(0.067, 0.112) == "below the average readmission rate (about 0.6×)"
+    assert ui.comparison(0.11, 0.112) == "about 1.0× the average readmission rate"
+    assert ui.comparison(0.067, 0.112) == "about 0.6× the average readmission rate"
 
 
 def test_no_compliance_claims_in_the_ui():
     for path in [ROOT / "app.py", ROOT / "ui.py", *(ROOT / "app_pages").glob("*.py")]:
         assert "hipaa" not in path.read_text(encoding="utf-8").lower(), path.name
+
+
+def test_moderate_note_only_on_moderate_dashboards(app):
+    note = "The Moderate tier starts at the median score (10.1%), just below the 11.2% average readmission rate."
+    for patient in QUEUE:
+        if patient["source"] != "test_set":
+            continue
+        open_patient(app, patient["id"])
+        tier = next(s.value for s in app.subheader if " risk — " in s.value).split(" risk")[0]
+        assert (note in all_text(app)) == (tier == "Moderate"), (patient["id"], tier)
+        assert "below the average" not in all_text(app)
