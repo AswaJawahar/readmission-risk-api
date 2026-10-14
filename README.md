@@ -119,7 +119,16 @@ Prior inpatient stays account for 55% of that explanation. The contributions des
 
 Each excerpt has a short verbatim quote, a plain-language summary, topic tags, and a `verified_by` field. Content is limited to discharge planning, transitions, follow-up, education, medication reconciliation and readmission context; dosing and treatment content is left out because the assistant is advisory only.
 
-**Review status:** the quotes were copied from the source pages, and `python knowledge_base/check_quotes.py` confirms every quote still appears word for word on its page (it needs internet access). The summaries are drafts. Every excerpt is marked `verified_by: "pending"` until a teammate or faculty reviewer checks it and replaces "pending" with their name. `GET /sources` lists the sources and how many excerpts are still pending.
+**Review status:** the quotes were copied from the source pages, and `python knowledge_base/check_quotes.py` confirms every quote still appears word for word on its page (it needs internet access). The summaries are drafts. Every excerpt is marked `verified_by: "pending"` until a teammate or faculty reviewer checks it. `GET /sources` lists the sources with counts of pending, approved and rejected excerpts.
+
+To review, open `knowledge_base/review_sheet.xlsx` (one row per excerpt, with instructions on the second sheet), fill in Reviewer, Decision (Approve / Edit / Reject), Corrected summary (for Edit) and Notes, then run:
+
+```
+python knowledge_base/review_sheet.py apply --dry-run   # preview
+python knowledge_base/review_sheet.py apply             # update sources.json
+```
+
+Approve sets `verified_by` to the reviewer's name; Edit also replaces the summary and keeps the original draft in the excerpt's `review` record; Reject sets `verified_by` to `"rejected"`, and rejected excerpts are never retrieved. Rows without a decision stay pending. If any row has a problem (no reviewer name, an Edit without a corrected summary, a changed quote, an unknown ID), nothing is written. `python knowledge_base/review_sheet.py export` regenerates the sheet from the current knowledge base. Reading and writing the sheet needs `openpyxl` (in `requirements-dev.txt`).
 
 Retrieval (`knowledge.py`) uses TF-IDF text similarity plus a boost for excerpts tagged with the topics of the patient's risk-raising factors. Gender and race never select guidance. Unrelated questions return no excerpts. Matching is word-based, so a question that uses different words from the source (for example "call the patient" versus "telephone") can miss a relevant excerpt.
 

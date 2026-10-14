@@ -43,9 +43,16 @@ def test_excerpts_are_short_tagged_and_reviewable():
         assert isinstance(e["verified_by"], str) and e["verified_by"].strip()
 
 
-def test_every_excerpt_awaits_review():
-    # Flip to a per-reviewer check once the team starts signing entries off
-    assert {e["verified_by"] for e in excerpts} == {"pending"}
+def test_review_status_is_consistent():
+    # pending until reviewed; a reviewed excerpt names its reviewer (or is rejected)
+    for e in excerpts:
+        if e["verified_by"] == "pending":
+            assert "review" not in e
+        elif e["verified_by"] == "rejected":
+            assert e["review"]["decision"] == "Reject"
+        else:
+            assert e["review"]["reviewer"] == e["verified_by"]
+            assert e["review"]["decision"] in {"Approve", "Edit"}
 
 
 def test_every_factor_topic_is_covered():
@@ -97,14 +104,30 @@ def test_results_are_ranked_and_limited():
 
 
 def test_require_verified_excludes_pending_entries():
-    assert kb.search_for_factor("num_medications", require_verified=True) == []
+    results = kb.search_for_factor("num_medications", require_verified=True)
+    assert all(r["verified_by"] not in {"pending", "rejected"} for r in results)
+
+
+def test_rejected_excerpts_are_never_returned(tmp_path):
+    rejected = json.loads(KB_PATH.read_text(encoding="utf-8"))
+    for source in rejected["sources"]:
+        for e in source["excerpts"]:
+            if "medication_reconciliation" in e["tags"]:
+                e.update(verified_by="rejected", review={"reviewer": "T", "decision": "Reject"})
+    path = tmp_path / "sources.json"
+    path.write_text(json.dumps(rejected), encoding="utf-8")
+    query = "medication reconciliation at discharge"
+    assert any("medication_reconciliation" in r["tags"] for r in kb.search(query, top_k=10))
+    after = KnowledgeBase(path).search(query, top_k=10)
+    assert all("medication_reconciliation" not in r["tags"] for r in after)
 
 
 def test_sources_endpoint():
     sources = client.get("/sources").json()
     assert len(sources) == len(data["sources"])
     assert sum(s["excerpts"] for s in sources) == len(excerpts)
-    assert all(s["pending_review"] == s["excerpts"] for s in sources)
+    for s in sources:
+        assert s["pending_review"] + s["approved"] + s["rejected"] == s["excerpts"]
 
 
 def test_field_tags_only_reference_real_inputs():

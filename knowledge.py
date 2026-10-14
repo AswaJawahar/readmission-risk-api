@@ -73,7 +73,8 @@ class KnowledgeBase:
     def search(self, query="", tags=(), top_k=5, require_verified=False):
         """Excerpts matching a question and/or topic tags, best first.
 
-        With require_verified=True, excerpts still marked "pending" are skipped.
+        Rejected excerpts are never returned. With require_verified=True,
+        excerpts still marked "pending" are skipped too.
         """
         tags = set(tags)
         text = " ".join([query] + [t.replace("_", " ") for t in sorted(tags)]).strip()
@@ -83,7 +84,8 @@ class KnowledgeBase:
 
         results = []
         for excerpt, sim in zip(self.excerpts, similarity):
-            if require_verified and excerpt["verified_by"] == "pending":
+            status = excerpt["verified_by"]
+            if status == "rejected" or (require_verified and status == "pending"):
                 continue
             overlap = len(tags & set(excerpt["tags"])) / len(tags) if tags else 0.0
             score = float(sim) + TAG_WEIGHT * overlap
@@ -100,6 +102,10 @@ class KnowledgeBase:
         return self.search(LABELS[field], FIELD_TAGS[field], top_k, require_verified)
 
     def source_list(self):
+        def count(source, status):
+            return sum(e["verified_by"] == status for e in source["excerpts"])
+
         return [{**citation(s), "accessed": s["accessed"], "excerpts": len(s["excerpts"]),
-                 "pending_review": sum(e["verified_by"] == "pending" for e in s["excerpts"])}
+                 "pending_review": count(s, "pending"), "rejected": count(s, "rejected"),
+                 "approved": len(s["excerpts"]) - count(s, "pending") - count(s, "rejected")}
                 for s in self.sources.values()]
