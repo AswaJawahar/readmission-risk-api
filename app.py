@@ -1,17 +1,21 @@
+import json
+from pathlib import Path
+
 import streamlit as st
 import requests
 
 API_URL = "https://readmission-risk-api-oyvy.onrender.com/predict"
 
-# Codes that mean the patient died or entered hospice care.
-# exploration.ipynb removes these 2,423 encounters before encoding and the
-# train/test split, since readmission isn't clinically possible for them, so
-# the model never saw them. 19/20/21 aren't in the dropdown below but are
-# listed for completeness. The API itself does not reject these codes yet;
-# this front-end check is the only safeguard.
-EXCLUDED_CODES = {11, 13, 14, 19, 20, 21}
+# Same allowed values and ranges the API validates against (built from the
+# training split by build_metadata.py), so the form never offers a value the
+# API will reject.
+metadata = json.loads((Path(__file__).resolve().parent / "model_metadata.json").read_text(encoding="utf-8"))
+ranges = metadata["numeric_ranges"]
+categories = metadata["categories"]
 
-discharge_options = {
+# Labels from the UCI dataset's IDs_mapping. 11/13/14 (expired / hospice) stay
+# in the list so the API's out-of-scope message is shown for them.
+discharge_labels = {
     1: "Discharged to home",
     2: "Discharged/transferred to another short term hospital",
     3: "Discharged/transferred to SNF",
@@ -23,11 +27,24 @@ discharge_options = {
     11: "Expired",
     13: "Hospice / home",
     14: "Hospice / medical facility",
+    15: "Discharged/transferred within this institution to Medicare approved swing bed",
     18: "NULL",
     22: "Discharged/transferred to another rehab facility",
     23: "Discharged/transferred to a long term care hospital",
     25: "Not Mapped",
+    28: "Discharged/transferred/referred to a psychiatric hospital or psychiatric unit",
 }
+offered_codes = set(metadata["discharge_codes"]["allowed"]) | set(metadata["discharge_codes"]["out_of_scope"])
+discharge_options = {k: v for k, v in discharge_labels.items() if k in offered_codes}
+
+
+def ordered(preferred, allowed):
+    """Keep the form's preferred order, limited to (and completed by) the allowed values."""
+    return [v for v in preferred if v in allowed] + [v for v in allowed if v not in preferred]
+
+
+def number_input(label, field, value):
+    return st.number_input(label, min_value=ranges[field]["min"], max_value=ranges[field]["max"], value=value)
 
 st.set_page_config(page_title="Readmission Risk Predictor", page_icon="🏥")
 st.title("🏥 30-Day Readmission Risk Predictor")
@@ -36,65 +53,63 @@ st.write("Enter patient details to estimate readmission risk, powered by a live 
 col1, col2 = st.columns(2)
 
 with col1:
-    # Min/max limits match the training data after the death/hospice filter.
-    number_inpatient = st.number_input("Prior inpatient visits", min_value=0, max_value=21, value=0)
+    number_inpatient = number_input("Prior inpatient visits", "number_inpatient", 0)
     discharge_label = st.selectbox("Discharge disposition", list(discharge_options.values()))
     discharge_disposition_id = [k for k, v in discharge_options.items() if v == discharge_label][0]
-    number_emergency = st.number_input("Prior emergency visits", min_value=0, max_value=76, value=0)
-    number_diagnoses = st.number_input("Number of diagnoses", min_value=1, max_value=16, value=5)
-    num_medications = st.number_input("Number of medications", min_value=1, max_value=81, value=15)
-    time_in_hospital = st.number_input("Days in hospital", min_value=1, max_value=14, value=4)
-    num_lab_procedures = st.number_input("Lab procedures performed", min_value=1, max_value=132, value=43)
+    number_emergency = number_input("Prior emergency visits", "number_emergency", 0)
+    number_diagnoses = number_input("Number of diagnoses", "number_diagnoses", 5)
+    num_medications = number_input("Number of medications", "num_medications", 15)
+    time_in_hospital = number_input("Days in hospital", "time_in_hospital", 4)
+    num_lab_procedures = number_input("Lab procedures performed", "num_lab_procedures", 43)
 
 with col2:
-    diabetesMed = st.selectbox("On diabetes medication?", ["Yes", "No"])
-    age = st.selectbox("Age range", ["[0-10)", "[10-20)", "[20-30)", "[30-40)", "[40-50)",
-                                       "[50-60)", "[60-70)", "[70-80)", "[80-90)", "[90-100)"])
-    gender = st.selectbox("Gender", ["Female", "Male"])
-    race = st.selectbox("Race", ["Caucasian", "AfricanAmerican", "Hispanic", "Asian", "Other"])
+    diabetesMed = st.selectbox("On diabetes medication?", ordered(["Yes", "No"], categories["diabetesMed"]))
+    age = st.selectbox("Age range", categories["age"])
+    gender = st.selectbox("Gender", ordered(["Female", "Male"], categories["gender"]))
+    race = st.selectbox("Race", ordered(["Caucasian", "AfricanAmerican", "Hispanic", "Asian", "Other"],
+                                        categories["race"]))
     diag_groups = ["Circulatory", "Respiratory", "Digestive", "Diabetes", "Injury",
                    "Musculoskeletal", "Genitourinary", "Neoplasms", "Other", "Missing"]
-    diag_1_group = st.selectbox("Primary diagnosis category", diag_groups)
-    diag_2_group = st.selectbox("Secondary diagnosis category", diag_groups)
-    diag_3_group = st.selectbox("Tertiary diagnosis category", diag_groups)
+    diag_1_group = st.selectbox("Primary diagnosis category", ordered(diag_groups, categories["diag_1_group"]))
+    diag_2_group = st.selectbox("Secondary diagnosis category", ordered(diag_groups, categories["diag_2_group"]))
+    diag_3_group = st.selectbox("Tertiary diagnosis category", ordered(diag_groups, categories["diag_3_group"]))
 
 if st.button("Predict Readmission Risk", type="primary"):
-    if discharge_disposition_id in EXCLUDED_CODES:
-        st.warning(
-            "This discharge disposition (expired / hospice) was excluded from "
-            "model training, since 30-day readmission isn't clinically possible "
-            "for these encounters. No prediction is made for this case."
-        )
-    else:
-        payload = {
-            "number_inpatient": number_inpatient,
-            "discharge_disposition_id": discharge_disposition_id,
-            "number_emergency": number_emergency,
-            "number_diagnoses": number_diagnoses,
-            "num_medications": num_medications,
-            "time_in_hospital": time_in_hospital,
-            "num_lab_procedures": num_lab_procedures,
-            "diabetesMed": diabetesMed,
-            "diag_1_group": diag_1_group,
-            "diag_2_group": diag_2_group,
-            "diag_3_group": diag_3_group,
-            "age": age,
-            "gender": gender,
-            "race": race,
-        }
+    payload = {
+        "number_inpatient": number_inpatient,
+        "discharge_disposition_id": discharge_disposition_id,
+        "number_emergency": number_emergency,
+        "number_diagnoses": number_diagnoses,
+        "num_medications": num_medications,
+        "time_in_hospital": time_in_hospital,
+        "num_lab_procedures": num_lab_procedures,
+        "diabetesMed": diabetesMed,
+        "diag_1_group": diag_1_group,
+        "diag_2_group": diag_2_group,
+        "diag_3_group": diag_3_group,
+        "age": age,
+        "gender": gender,
+        "race": race,
+    }
 
-        with st.spinner("Contacting model..."):
-            response = requests.post(API_URL, json=payload)
+    with st.spinner("Contacting model..."):
+        response = requests.post(API_URL, json=payload)
 
-        if response.status_code == 200:
-            result = response.json()
-            score = result["readmission_risk_score"]
+    if response.status_code == 200:
+        result = response.json()
+        score = result["readmission_risk_score"]
 
-            st.metric("Readmission Risk Score", f"{score:.1%}")
+        st.metric("Readmission Risk Score", f"{score:.1%}")
 
-            if result["high_risk"]:
-                st.error("⚠️ High Risk — flagged for readmission risk")
-            else:
-                st.success("✅ Lower Risk")
+        if result["high_risk"]:
+            st.error("⚠️ High Risk — flagged for readmission risk")
         else:
-            st.error(f"API error: {response.status_code}")
+            st.success("✅ Lower Risk")
+    elif response.status_code == 422:
+        for error in response.json()["detail"]:
+            if error["type"] == "out_of_scope":
+                st.warning(error["msg"])
+            else:
+                st.error(error["msg"])
+    else:
+        st.error(f"API error: {response.status_code}")

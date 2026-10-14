@@ -50,9 +50,30 @@ Streamlit front-end  →  FastAPI /predict endpoint  →  saved Gradient Boostin
    (user-facing form)      (Render, always-on)          (scikit-learn, .pkl)
 ```
 
-The API accepts 14 input fields (Pydantic checks field names and types), one-hot encodes them, and aligns the result to the model's 51 training columns with `reindex(columns=model_features, fill_value=0)`. Every model input comes from a field the caller sends.
+The API accepts 14 input fields, one-hot encodes them, and aligns the result to the model's 51 training columns with `reindex(columns=model_features, fill_value=0)`. Every model input comes from a field the caller sends.
 
-**Unknown categories are silently treated as the baseline.** A category value the model never saw (including a typo such as `"Femle"`) produces a column that `reindex` drops, so the row looks identical to the reference category dropped during training (`drop_first=True`): race → AfricanAmerican, gender → Female, age → [0-10), diagnosis group → Circulatory, diabetesMed → No. No error is raised.
+## Input validation
+
+Every request is checked against `model_metadata.json`, which `build_metadata.py` generates from the training split (it reproduces the notebook's split, loads the saved model, and refuses to write if the test AUC no longer matches). Invalid requests get a 422 response whose `detail` names the field and the problem:
+
+| Error `type` | When | Example message |
+|---|---|---|
+| `invalid_category` | A category value outside the training values, e.g. a typo | `'Femle' is not a valid value for gender. Allowed values: Female, Male` |
+| `out_of_range` | A number outside the training min/max | `number_inpatient must be between 0 and 21 (the range seen in training data); got 22` |
+| `out_of_scope` | Discharge codes 11, 13, 14, 19, 20, 21 (expired / hospice) | `…excluded from training because 30-day readmission isn't clinically possible, so no prediction is made.` |
+
+Values with fewer than 50 training rows are also rejected, because the model has too little data on them: gender `Unknown/Invalid` (3 rows) and discharge codes 9 (18), 10 (3), 12 (3), 16 (8), 17 (13), 24 (38) and 27 (4). Valid requests get exactly the same response as before. The Streamlit form reads the same file, so it only offers values the API accepts.
+
+Before this check existed, an unknown category such as `"Femle"` was silently scored as the baseline category with no error.
+
+## Running the tests
+
+```
+pip install -r requirements-dev.txt
+pytest
+```
+
+The tests cover validation, the response format, known scores, and the Streamlit form (with the API called in-process). The metadata test needs `clean_diabetic_data.csv`, which is not in the repository, so it is skipped elsewhere. After changing the model, run `python build_metadata.py` to regenerate `model_metadata.json`.
 
 ## Why the 14-field model
 
@@ -86,5 +107,4 @@ Python, pandas, scikit-learn, FastAPI, Uvicorn, Streamlit, deployed on Render (A
 
 - Trained on 1999–2008 administrative data; may not reflect current clinical practice.
 - The model uses 14 fields; lab results (A1C, glucose), individual diabetes medications, admission type/source, procedures and outpatient visits are not used.
-- The API does not yet reject death/hospice discharge codes or unknown category values; only the Streamlit front-end blocks death/hospice codes.
 - AUC ~0.66 reflects real, published performance limits of this dataset — not a target for clinical deployment as-is.

@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 clean_diabetic_data.csv
+.env
+.pytest_cache/
