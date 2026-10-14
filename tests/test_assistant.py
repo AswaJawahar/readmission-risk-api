@@ -72,12 +72,12 @@ def test_rule_based_text_is_the_knowledge_base_summary():
         assert item["text"] == summaries[item["citations"][0]]
 
 
-def test_items_are_linked_to_real_risk_raising_factors():
+def test_items_are_linked_to_factors_associated_with_a_higher_score():
     exp = explanation()
-    raising = {f["description"] for f in exp["factors"] if f["direction"] == "raises" and not f["demographic"]}
+    higher = {f["description"] for f in exp["factors"] if f["direction"] == "higher" and not f["demographic"]}
     body = make().respond(exp)
     linked = [i["linked_factor"] for i in body["items"] if i["linked_factor"]]
-    assert linked and set(linked) <= raising
+    assert linked and set(linked) <= higher
     # The top patient's main factor gets an actionable suggestion, not only background
     assert any(i["type"] == "suggestion" and i["linked_factor"].startswith("9 inpatient stays")
                for i in body["items"] if i["linked_factor"])

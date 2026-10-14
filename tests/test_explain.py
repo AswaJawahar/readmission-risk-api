@@ -50,9 +50,9 @@ def test_explain_includes_the_predict_response():
 def test_top_row_is_driven_by_prior_inpatient_stays():
     body = explain(TEST_SET_TOP_ROW)
     top = body["factors"][0]
-    assert top["field"] == "number_inpatient" and top["direction"] == "raises"
+    assert top["field"] == "number_inpatient" and top["direction"] == "higher"
     assert body["summary"].startswith(
-        "The factors raising this patient's risk the most are 9 inpatient stays")
+        "The factors most associated with a higher score are 9 inpatient stays")
 
 
 def test_direction_matches_sign_and_size():
@@ -60,7 +60,7 @@ def test_direction_matches_sign_and_size():
         if f["share"] < 0.02:
             assert f["direction"] == "minimal"
         else:
-            assert f["direction"] == ("raises" if f["contribution_log_odds"] > 0 else "lowers")
+            assert f["direction"] == ("higher" if f["contribution_log_odds"] > 0 else "lower")
 
 
 def test_demographic_fields_are_marked():

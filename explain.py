@@ -88,7 +88,8 @@ def explain(patient, shap_row, features, discharge_labels):
         if f["share"] < MINIMAL_SHARE:
             f["direction"] = "minimal"
         else:
-            f["direction"] = "raises" if f["contribution_log_odds"] > 0 else "lowers"
+            # Associations with the model's score, not causes of readmission
+            f["direction"] = "higher" if f["contribution_log_odds"] > 0 else "lower"
     factors.sort(key=lambda f: abs(f["contribution_log_odds"]), reverse=True)
 
     for f in factors:
@@ -99,23 +100,21 @@ def explain(patient, shap_row, features, discharge_labels):
 
 def summarize(factors, top_n=2):
     """A one-sentence, template-based summary of the main factors (no AI involved)."""
-    def listed(items, verb):
+    def listed(items, direction):
         names = [f["description"][0].lower() + f["description"][1:] for f in items]
         if len(names) == 1:
-            return f"factor {verb} the most is {names[0]}"
-        return f"factors {verb} the most are " + ", ".join(names[:-1]) + " and " + names[-1]
+            return f"the factor most associated with a {direction} score is {names[0]}"
+        return (f"the factors most associated with a {direction} score are "
+                + ", ".join(names[:-1]) + " and " + names[-1])
 
     notable = [f for f in factors if f["share"] >= SUMMARY_MIN_SHARE]
-    raising = [f for f in notable if f["direction"] == "raises"][:top_n]
-    lowering = [f for f in notable if f["direction"] == "lowers"][:top_n]
-    if not raising and not lowering:
+    higher = [f for f in notable if f["direction"] == "higher"][:top_n]
+    lower = [f for f in notable if f["direction"] == "lower"][:top_n]
+    if not higher and not lower:
         return "No single factor stands out; the score is close to the model's typical patient."
 
-    parts = [(raising, "raising this patient's risk"), (lowering, "lowering this patient's risk")]
+    parts = [(higher, "higher"), (lower, "lower")]
     # Lead with whichever direction carries more of the explanation
     parts.sort(key=lambda part: sum(f["share"] for f in part[0]), reverse=True)
-    phrases = ["the " + listed(items, verb) for items, verb in parts if items]
-    if len(phrases) == 2:
-        phrases[1] = phrases[1].replace("this patient's risk", "it")
-    sentence = "; ".join(phrases) + "."
+    sentence = "; ".join(listed(items, direction) for items, direction in parts if items) + "."
     return sentence[0].upper() + sentence[1:]

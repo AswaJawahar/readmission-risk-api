@@ -4,7 +4,7 @@ Pipeline for each request:
 1. Scope check: questions asking for a diagnosis, a dose, a prescription or a
    treatment change (or trying to override the rules) are refused.
 2. Retrieval: excerpts matching the question, or, with no question, excerpts
-   linked to the patient's main risk-raising factors.
+   linked to the factors most associated with a higher score for this patient.
 3. Generation: rule-based by default (each item is a vetted summary from the
    knowledge base); an LLM provider can phrase items instead, but only from
    the retrieved excerpts.
@@ -128,8 +128,8 @@ class Assistant:
                     linked[r["excerpt_id"]] = factor
                     candidates.append(r)
 
-        raising = [f for f in factors if f["direction"] == "raises" and not f["demographic"]]
-        for factor in raising[:FACTORS_TO_LINK]:
+        higher = [f for f in factors if f["direction"] == "higher" and not f["demographic"]]
+        for factor in higher[:FACTORS_TO_LINK]:
             # Only excerpts that share a topic with the factor count as linked to it
             topics = set(FIELD_TAGS.get(factor["field"], []))
             results = [r for r in self.kb.search_for_factor(factor["field"], top_k=len(self.kb.excerpts),
@@ -254,6 +254,6 @@ class Assistant:
             return {**base, "mode": mode, "note": note, "status": "insufficient_information",
                     "message": INSUFFICIENT, "unsupported": unsupported}
         message = ("From the curated sources, about your question:" if question else
-                   "Discharge-planning items from the curated sources, linked to this patient's main risk factors:")
+                   "Discharge-planning items from the curated sources, linked to the factors behind this patient's score:")
         return {**base, "mode": mode, "note": note, "status": "answered", "message": message,
                 "items": items, "unsupported": unsupported, "citations": citations}

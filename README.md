@@ -46,11 +46,30 @@ This result closely matches published benchmarks on this exact dataset (independ
 ## Architecture
 
 ```
-Streamlit front-end  →  FastAPI /predict, /explain  →  saved Gradient Boosting model
-   (user-facing form)      (Render, always-on)           (scikit-learn, .pkl) + SHAP
+Streamlit app                 →  FastAPI (Render)                          →  Gradient Boosting model + SHAP
+(patient queue, dashboard,       /predict /explain /assistant                 curated knowledge base
+ What-if, About the model)       /model-info /sources /assistant/config
 ```
 
 The API accepts 14 input fields, one-hot encodes them, and aligns the result to the model's 51 training columns with `reindex(columns=model_features, fill_value=0)`. Every model input comes from a field the caller sends.
+
+## The app
+
+The Streamlit app (`app.py`, pages in `app_pages/`, shared code in `ui.py`) has three pages:
+
+- **Patient queue (main screen).** 25 demo patients from `demo/patient_queue.json`, highest risk first, with a tier filter. Each row shows the tier and how the score compares with the average (for example "about 2.3× the average"). Selecting a row opens that patient's dashboard. The queue holds 24 de-identified test-set encounters (8 per tier, only the 14 model fields, fake IDs such as `PT-9943`) and one hand-made hospice case that shows the out-of-scope check. `python build_patient_queue.py` regenerates the file (it needs the CSV).
+- **Dashboard.** Leads with the tier and a comparison, e.g. "High risk — about 7.0× the average readmission rate (top 10% of patients)", with the raw score in smaller text ("Score 78% (average: 11%)") and the tier's actual test-set readmission rate. "Average" is the test-set 30-day readmission rate (11.2%). It then shows the factors behind the score (worded as "associated with a higher/lower score", not as causes), the summary sentence, cited discharge-planning considerations, a question box with suggested questions, the supporting evidence with review status, and test-set performance.
+- **What-if.** The manual entry form, showing the same dashboard for any combination of inputs.
+- **About the model.** Test-set metrics, tiers, subgroup results, knowledge-base sources and limitations, all loaded from the API.
+
+The app calls the API at `API_URL`, read from an environment variable or Streamlit secrets and defaulting to the deployed Render URL. To run everything locally:
+
+```
+uvicorn main:app --port 8000
+API_URL=http://127.0.0.1:8000 streamlit run app.py
+```
+
+`.streamlit/config.toml` sets a neutral blue accent so bars and controls don't read as alerts; tier badges always pair a colour with a text label and icon.
 
 ## Input validation
 
@@ -98,9 +117,9 @@ Asian, Hispanic, Other and Unknown race groups each had fewer than 100 readmissi
 
 `POST /explain` takes the same input as `/predict` and returns the same fields, plus the factors behind the score. It uses SHAP (`TreeExplainer`), which splits the model's output (in log-odds) into one contribution per encoded column. Columns created by one-hot encoding a field are added back together, so there is exactly one factor per input field, and every factor shown is something the user entered. The contributions plus the model's baseline add up to the patient's score; the tests check this.
 
-Each factor has a plain-language description, a direction (raises, lowers, or little effect below 2% of the total), its share of the total contribution, and a `demographic` flag for age, gender and race. A template sentence (no AI involved) summarizes the main factors. For the test set's highest-risk encounter:
+Each factor has a plain-language description, a direction (`higher` or `lower`, meaning the value is associated with a higher or lower score, or `minimal` below 2% of the total), its share of the total contribution, and a `demographic` flag for age, gender and race. A template sentence (no AI involved) summarizes the main factors. For the test set's highest-risk encounter:
 
-> The factors raising this patient's risk the most are 9 inpatient stays in the year before this admission and secondary diagnosis: Neoplasms.
+> The factors most associated with a higher score are 9 inpatient stays in the year before this admission and secondary diagnosis: Neoplasms.
 
 Prior inpatient stays account for 55% of that explanation. The contributions describe how the model arrived at a score, not clinical causes. Computing an explanation takes about 20 ms per request and adds about 30 MB of memory (measured locally, about 210 MB in total).
 
@@ -130,14 +149,14 @@ python knowledge_base/review_sheet.py apply             # update sources.json
 
 Approve sets `verified_by` to the reviewer's name; Edit also replaces the summary and keeps the original draft in the excerpt's `review` record; Reject sets `verified_by` to `"rejected"`, and rejected excerpts are never retrieved. Rows without a decision stay pending. If any row has a problem (no reviewer name, an Edit without a corrected summary, a changed quote, an unknown ID), nothing is written. `python knowledge_base/review_sheet.py export` regenerates the sheet from the current knowledge base. Reading and writing the sheet needs `openpyxl` (in `requirements-dev.txt`).
 
-Retrieval (`knowledge.py`) uses TF-IDF text similarity plus a boost for excerpts tagged with the topics of the patient's risk-raising factors. Gender and race never select guidance. Unrelated questions return no excerpts. Matching is word-based, so a question that uses different words from the source (for example "call the patient" versus "telephone") can miss a relevant excerpt.
+Retrieval (`knowledge.py`) uses TF-IDF text similarity plus a boost for excerpts tagged with the topics of the factors most associated with the patient's higher score. Gender and race never select guidance. Unrelated questions return no excerpts. Matching is word-based, so a question that uses different words from the source (for example "call the patient" versus "telephone") can miss a relevant excerpt.
 
 ## Discharge assistant
 
 `POST /assistant` takes `{"patient": {...14 fields...}, "question": "optional, up to 500 characters"}` and returns discharge-planning items grounded only in the knowledge base. Each request goes through four steps:
 
 1. **Scope check.** Questions asking for a diagnosis, a specific dose, a prescription or a treatment change, or trying to override the rules ("ignore previous instructions"), are refused with an explanation. Questions that merely mention medications ("why do wrong doses happen at discharge?") are allowed.
-2. **Retrieval.** With a question, excerpts matching it. Without one, up to three of the patient's main risk-raising factors (never age, gender or race) are each linked to one recommendation and one piece of context that share the factor's topic, plus general discharge items.
+2. **Retrieval.** With a question, excerpts matching it. Without one, up to three of the factors most associated with a higher score for this patient (never age, gender or race) are each linked to one recommendation and one piece of context that share the factor's topic, plus general discharge items.
 3. **Generation.** By default (`LLM_PROVIDER=none`) the assistant is rule-based: each item is the knowledge base's own summary of a cited excerpt. An LLM provider can be plugged in to phrase items, but it only sees the retrieved excerpts and plain-language descriptions of the 14 inputs; email addresses and phone numbers in the question are redacted first.
 4. **Checks.** Every item must cite retrieved excerpts. LLM items that cite nothing, cite a source that wasn't provided, or contain dosing/treatment advice are returned under `unsupported` with a reason, not as suggestions. If nothing is supported, or the question isn't covered, the answer is "Insufficient information" rather than a guess. If the LLM fails, times out or returns malformed output, the assistant falls back to rule-based mode and says so in `note`.
 
@@ -152,7 +171,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-The tests cover validation, the response format, known scores, and the Streamlit form (with the API called in-process). The metadata test needs `clean_diabetic_data.csv`, which is not in the repository, so it is skipped elsewhere. After changing the model, run `python build_metadata.py` to regenerate `model_metadata.json`.
+The tests cover validation, the response format, known scores, explanations, the knowledge base, the assistant, the demo queue, and the Streamlit pages (with the API called in-process). The metadata test needs `clean_diabetic_data.csv`, which is not in the repository, so it is skipped elsewhere. After changing the model, run `python build_metadata.py` to regenerate `model_metadata.json`.
 
 ## Why the 14-field model
 

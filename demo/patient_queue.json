@@ -1,0 +1,507 @@
+{
+  "description": "Demo patient queue. Test-set encounters are de-identified records from the UCI Diabetes 130-US Hospitals dataset (14 model fields only, fake IDs); the hand-made case is invented.",
+  "generated_by": "build_patient_queue.py",
+  "patients": [
+    {
+      "id": "PT-1891",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 18,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 29,
+        "time_in_hospital": 8,
+        "num_lab_procedures": 46,
+        "diabetesMed": "No",
+        "diag_1_group": "Circulatory",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Injury",
+        "age": "[50-60)",
+        "gender": "Female",
+        "race": "Hispanic"
+      }
+    },
+    {
+      "id": "PT-3736",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 22,
+        "number_emergency": 0,
+        "number_diagnoses": 6,
+        "num_medications": 13,
+        "time_in_hospital": 2,
+        "num_lab_procedures": 1,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Other",
+        "diag_2_group": "Other",
+        "diag_3_group": "Other",
+        "age": "[50-60)",
+        "gender": "Female",
+        "race": "AfricanAmerican"
+      }
+    },
+    {
+      "id": "PT-1633",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 14,
+        "time_in_hospital": 2,
+        "num_lab_procedures": 46,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Digestive",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Digestive",
+        "age": "[70-80)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-5180",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 22,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 60,
+        "time_in_hospital": 14,
+        "num_lab_procedures": 55,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Circulatory",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Diabetes",
+        "age": "[50-60)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-3623",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 3,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 21,
+        "time_in_hospital": 11,
+        "num_lab_procedures": 63,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Neoplasms",
+        "diag_2_group": "Genitourinary",
+        "diag_3_group": "Circulatory",
+        "age": "[80-90)",
+        "gender": "Female",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-3867",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 1,
+        "discharge_disposition_id": 3,
+        "number_emergency": 1,
+        "number_diagnoses": 9,
+        "num_medications": 11,
+        "time_in_hospital": 6,
+        "num_lab_procedures": 54,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Other",
+        "diag_2_group": "Other",
+        "diag_3_group": "Genitourinary",
+        "age": "[80-90)",
+        "gender": "Female",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-3856",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 6,
+        "number_emergency": 0,
+        "number_diagnoses": 7,
+        "num_medications": 18,
+        "time_in_hospital": 5,
+        "num_lab_procedures": 51,
+        "diabetesMed": "No",
+        "diag_1_group": "Circulatory",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Genitourinary",
+        "age": "[70-80)",
+        "gender": "Female",
+        "race": "Unknown"
+      }
+    },
+    {
+      "id": "PT-8556",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 9,
+        "time_in_hospital": 3,
+        "num_lab_procedures": 37,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Missing",
+        "diag_2_group": "Other",
+        "diag_3_group": "Genitourinary",
+        "age": "[70-80)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-8858",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 11,
+        "discharge_disposition_id": 1,
+        "number_emergency": 3,
+        "number_diagnoses": 9,
+        "num_medications": 15,
+        "time_in_hospital": 3,
+        "num_lab_procedures": 36,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Diabetes",
+        "diag_2_group": "Diabetes",
+        "diag_3_group": "Digestive",
+        "age": "[20-30)",
+        "gender": "Female",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-5209",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 1,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 7,
+        "num_medications": 16,
+        "time_in_hospital": 2,
+        "num_lab_procedures": 31,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Diabetes",
+        "diag_2_group": "Injury",
+        "diag_3_group": "Other",
+        "age": "[60-70)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-2938",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 6,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 22,
+        "time_in_hospital": 6,
+        "num_lab_procedures": 72,
+        "diabetesMed": "No",
+        "diag_1_group": "Respiratory",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Circulatory",
+        "age": "[80-90)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-6814",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 3,
+        "discharge_disposition_id": 3,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 9,
+        "time_in_hospital": 4,
+        "num_lab_procedures": 3,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Diabetes",
+        "diag_2_group": "Missing",
+        "diag_3_group": "Other",
+        "age": "[70-80)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-4798",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 5,
+        "num_medications": 7,
+        "time_in_hospital": 1,
+        "num_lab_procedures": 51,
+        "diabetesMed": "No",
+        "diag_1_group": "Respiratory",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Genitourinary",
+        "age": "[60-70)",
+        "gender": "Male",
+        "race": "AfricanAmerican"
+      }
+    },
+    {
+      "id": "PT-7483",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 4,
+        "num_medications": 7,
+        "time_in_hospital": 2,
+        "num_lab_procedures": 39,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Diabetes",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Other",
+        "age": "[60-70)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-1749",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 1,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 30,
+        "time_in_hospital": 9,
+        "num_lab_procedures": 43,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Circulatory",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Genitourinary",
+        "age": "[70-80)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-9943",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 9,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 21,
+        "time_in_hospital": 2,
+        "num_lab_procedures": 2,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Missing",
+        "diag_2_group": "Neoplasms",
+        "diag_3_group": "Neoplasms",
+        "age": "[80-90)",
+        "gender": "Female",
+        "race": "AfricanAmerican"
+      }
+    },
+    {
+      "id": "PT-8155",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 4,
+        "discharge_disposition_id": 3,
+        "number_emergency": 2,
+        "number_diagnoses": 9,
+        "num_medications": 6,
+        "time_in_hospital": 3,
+        "num_lab_procedures": 58,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Other",
+        "diag_2_group": "Diabetes",
+        "diag_3_group": "Other",
+        "age": "[60-70)",
+        "gender": "Female",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-3916",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 1,
+        "discharge_disposition_id": 3,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 20,
+        "time_in_hospital": 6,
+        "num_lab_procedures": 61,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Circulatory",
+        "diag_2_group": "Respiratory",
+        "diag_3_group": "Other",
+        "age": "[70-80)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-5267",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 6,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 41,
+        "time_in_hospital": 6,
+        "num_lab_procedures": 74,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Circulatory",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Injury",
+        "age": "[70-80)",
+        "gender": "Female",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-2745",
+      "source": "hand_made",
+      "note": "Created by hand to show the out-of-scope check; not a dataset record.",
+      "fields": {
+        "number_inpatient": 2,
+        "discharge_disposition_id": 14,
+        "number_emergency": 1,
+        "number_diagnoses": 9,
+        "num_medications": 18,
+        "time_in_hospital": 6,
+        "num_lab_procedures": 52,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Neoplasms",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Diabetes",
+        "age": "[80-90)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-2282",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 22,
+        "number_emergency": 0,
+        "number_diagnoses": 6,
+        "num_medications": 9,
+        "time_in_hospital": 3,
+        "num_lab_procedures": 37,
+        "diabetesMed": "No",
+        "diag_1_group": "Musculoskeletal",
+        "diag_2_group": "Circulatory",
+        "diag_3_group": "Circulatory",
+        "age": "[70-80)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-8893",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 22,
+        "number_emergency": 0,
+        "number_diagnoses": 5,
+        "num_medications": 28,
+        "time_in_hospital": 5,
+        "num_lab_procedures": 57,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Injury",
+        "diag_2_group": "Missing",
+        "diag_3_group": "Circulatory",
+        "age": "[70-80)",
+        "gender": "Female",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-2207",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 20,
+        "time_in_hospital": 1,
+        "num_lab_procedures": 32,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Circulatory",
+        "diag_2_group": "Missing",
+        "diag_3_group": "Genitourinary",
+        "age": "[70-80)",
+        "gender": "Male",
+        "race": "Caucasian"
+      }
+    },
+    {
+      "id": "PT-9900",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 9,
+        "num_medications": 17,
+        "time_in_hospital": 4,
+        "num_lab_procedures": 33,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Neoplasms",
+        "diag_2_group": "Other",
+        "diag_3_group": "Circulatory",
+        "age": "[60-70)",
+        "gender": "Female",
+        "race": "AfricanAmerican"
+      }
+    },
+    {
+      "id": "PT-3234",
+      "source": "test_set",
+      "fields": {
+        "number_inpatient": 0,
+        "discharge_disposition_id": 1,
+        "number_emergency": 0,
+        "number_diagnoses": 6,
+        "num_medications": 6,
+        "time_in_hospital": 1,
+        "num_lab_procedures": 64,
+        "diabetesMed": "Yes",
+        "diag_1_group": "Other",
+        "diag_2_group": "Other",
+        "diag_3_group": "Other",
+        "age": "[70-80)",
+        "gender": "Female",
+        "race": "Caucasian"
+      }
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+[theme]
+# Neutral blue accent so bars and pills do not read as alerts; red is kept for the High-risk badge
+primaryColor = "#2563EB"
