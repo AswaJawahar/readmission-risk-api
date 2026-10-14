@@ -2,13 +2,15 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic_core import PydanticCustomError
 import joblib
 import numpy as np
 import pandas as pd
 import shap
 
+from assistant import Assistant, make_provider
+from config import load_settings
 from explain import explain as explain_factors, summarize
 from knowledge import KnowledgeBase
 from risk import assign_tier, percentile_rank
@@ -23,6 +25,8 @@ explainer = shap.TreeExplainer(model)
 # The model's log-odds before any patient-specific contribution (a 1-element array in shap)
 BASELINE_LOG_ODDS = float(np.ravel(explainer.expected_value)[0])
 knowledge = KnowledgeBase()
+settings = load_settings()
+assistant = Assistant(knowledge, settings, *make_provider(settings))
 # Allowed values computed from the training split by build_metadata.py
 metadata = json.loads((BASE_DIR / "model_metadata.json").read_text(encoding="utf-8"))
 
@@ -142,4 +146,23 @@ def explain(patient: PatientData):
         "baseline_log_odds": round(BASELINE_LOG_ODDS, 4),
         "method": ("SHAP (TreeExplainer) contributions to the model's log-odds, summed per input "
                    "field. They show how the model arrived at this score, not clinical causes."),
+    }
+
+class AssistantRequest(BaseModel):
+    patient: PatientData
+    question: str | None = Field(default=None, max_length=500)
+
+@app.post("/assistant")
+def assistant_reply(request: AssistantRequest):
+    return assistant.respond(explain(request.patient), request.question)
+
+@app.get("/assistant/config")
+def assistant_config():
+    # Which mode is active; the API key itself is never returned
+    return {
+        "llm_provider": settings.llm_provider,
+        "active_mode": "llm" if assistant.provider else "rule_based",
+        "note": assistant.note,
+        "has_api_key": bool(settings.llm_api_key),
+        "kb_require_verified": settings.kb_require_verified,
     }

@@ -5,3 +5,4 @@ __pycache__/
 clean_diabetic_data.csv
 .env
 .pytest_cache/
+~$*

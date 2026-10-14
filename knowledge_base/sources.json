@@ -203,8 +203,7 @@
           "quote": "The discharge planning process should include education on the recognition, prevention, and management of DKA and/or HHS for all individuals affected by or at high risk for these events to prevent recurrence and readmission.",
           "summary": "Patients who had, or are at high risk of, a hyperglycemic crisis (DKA or HHS) should be taught how to recognize, prevent, and respond to it before discharge.",
           "tags": [
-            "patient_education",
-            "readmission_context"
+            "patient_education"
           ],
           "verified_by": "pending"
         },
@@ -417,8 +416,7 @@
           "summary": "The study's dataset (the same data this project's model is trained on) only includes diabetes admissions of 1 to 14 days that did not end in death or discharge to hospice.",
           "tags": [
             "readmission_context",
-            "length_of_stay",
-            "discharge_destination"
+            "length_of_stay"
           ],
           "verified_by": "pending"
         }

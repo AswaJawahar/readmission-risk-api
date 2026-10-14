@@ -132,6 +132,19 @@ Approve sets `verified_by` to the reviewer's name; Edit also replaces the summar
 
 Retrieval (`knowledge.py`) uses TF-IDF text similarity plus a boost for excerpts tagged with the topics of the patient's risk-raising factors. Gender and race never select guidance. Unrelated questions return no excerpts. Matching is word-based, so a question that uses different words from the source (for example "call the patient" versus "telephone") can miss a relevant excerpt.
 
+## Discharge assistant
+
+`POST /assistant` takes `{"patient": {...14 fields...}, "question": "optional, up to 500 characters"}` and returns discharge-planning items grounded only in the knowledge base. Each request goes through four steps:
+
+1. **Scope check.** Questions asking for a diagnosis, a specific dose, a prescription or a treatment change, or trying to override the rules ("ignore previous instructions"), are refused with an explanation. Questions that merely mention medications ("why do wrong doses happen at discharge?") are allowed.
+2. **Retrieval.** With a question, excerpts matching it. Without one, up to three of the patient's main risk-raising factors (never age, gender or race) are each linked to one recommendation and one piece of context that share the factor's topic, plus general discharge items.
+3. **Generation.** By default (`LLM_PROVIDER=none`) the assistant is rule-based: each item is the knowledge base's own summary of a cited excerpt. An LLM provider can be plugged in to phrase items, but it only sees the retrieved excerpts and plain-language descriptions of the 14 inputs; email addresses and phone numbers in the question are redacted first.
+4. **Checks.** Every item must cite retrieved excerpts. LLM items that cite nothing, cite a source that wasn't provided, or contain dosing/treatment advice are returned under `unsupported` with a reason, not as suggestions. If nothing is supported, or the question isn't covered, the answer is "Insufficient information" rather than a guess. If the LLM fails, times out or returns malformed output, the assistant falls back to rule-based mode and says so in `note`.
+
+Each response includes the patient's risk, the items (`suggestion` or `context`, with the factor they relate to), the cited excerpts with their source, URL, quote and review status, and an advisory-only disclaimer. Citations from excerpts no reviewer has approved yet are labelled **"Source pending review"**.
+
+Settings come from environment variables or a gitignored `.env` file (see `.env.example`): `LLM_PROVIDER` (default `none`), `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT_SECONDS` (default 8) and `KB_REQUIRE_VERIFIED` (default `false`; set to `true` once the knowledge base is reviewed, so only approved excerpts are used). No real LLM provider is wired up yet; the LLM path is tested with a fake provider. `GET /assistant/config` shows the active mode and whether a key is set, never the key itself.
+
 ## Running the tests
 
 ```
