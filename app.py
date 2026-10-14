@@ -4,8 +4,11 @@ import requests
 API_URL = "https://readmission-risk-api-oyvy.onrender.com/predict"
 
 # Codes that mean the patient died or entered hospice care.
-# These were excluded from model training since readmission isn't
-# clinically possible for these encounters.
+# exploration.ipynb removes these 2,423 encounters before encoding and the
+# train/test split, since readmission isn't clinically possible for them, so
+# the model never saw them. 19/20/21 aren't in the dropdown below but are
+# listed for completeness. The API itself does not reject these codes yet;
+# this front-end check is the only safeguard.
 EXCLUDED_CODES = {11, 13, 14, 19, 20, 21}
 
 discharge_options = {
@@ -33,14 +36,15 @@ st.write("Enter patient details to estimate readmission risk, powered by a live 
 col1, col2 = st.columns(2)
 
 with col1:
-    number_inpatient = st.number_input("Prior inpatient visits", min_value=0, max_value=20, value=0)
+    # Min/max limits match the training data after the death/hospice filter.
+    number_inpatient = st.number_input("Prior inpatient visits", min_value=0, max_value=21, value=0)
     discharge_label = st.selectbox("Discharge disposition", list(discharge_options.values()))
     discharge_disposition_id = [k for k, v in discharge_options.items() if v == discharge_label][0]
-    number_emergency = st.number_input("Prior emergency visits", min_value=0, max_value=20, value=0)
-    number_diagnoses = st.number_input("Number of diagnoses", min_value=1, max_value=20, value=5)
-    num_medications = st.number_input("Number of medications", min_value=0, max_value=50, value=10)
-    time_in_hospital = st.number_input("Days in hospital", min_value=1, max_value=14, value=3)
-    num_lab_procedures = st.number_input("Lab procedures performed", min_value=0, max_value=150, value=40)
+    number_emergency = st.number_input("Prior emergency visits", min_value=0, max_value=76, value=0)
+    number_diagnoses = st.number_input("Number of diagnoses", min_value=1, max_value=16, value=5)
+    num_medications = st.number_input("Number of medications", min_value=1, max_value=81, value=15)
+    time_in_hospital = st.number_input("Days in hospital", min_value=1, max_value=14, value=4)
+    num_lab_procedures = st.number_input("Lab procedures performed", min_value=1, max_value=132, value=43)
 
 with col2:
     diabetesMed = st.selectbox("On diabetes medication?", ["Yes", "No"])
