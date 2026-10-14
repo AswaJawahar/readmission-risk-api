@@ -6,3 +6,6 @@ numpy==2.4.6
 scikit-learn==1.9.0
 joblib==1.5.3
 shap==0.51.0
+# shap dependencies, pinned so a new numba release cannot break the build
+numba==0.68.0
+llvmlite==0.50.0
