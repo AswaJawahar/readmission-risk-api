@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from streamlit.testing.v1 import AppTest
 
 from main import app as api
+from main import metadata as form_metadata
 
 api_client = TestClient(api)
 
@@ -28,9 +29,13 @@ def test_form_offers_only_values_the_api_accepts(form):
     assert widget(form.number_input, "Prior inpatient visits").max == 21
 
 
-def test_default_prediction(form):
+def test_default_prediction_shows_tier_and_its_real_rate(form):
     form.button[0].click().run()
     assert form.metric[0].value == "6.7%"
+    low = next(t for t in form_metadata["risk_tiers"]["tiers"] if t["tier"] == "Low")
+    message = form.success[0].value
+    assert message.startswith("**Low risk**")
+    assert f"{low['readmission_rate']:.1%} of low-risk patients" in message
 
 
 def test_discharge_labels_come_from_ids_mapping(form):

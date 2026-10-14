@@ -7,6 +7,8 @@ from pydantic_core import PydanticCustomError
 import joblib
 import pandas as pd
 
+from risk import assign_tier, percentile_rank
+
 BASE_DIR = Path(__file__).resolve().parent
 
 app = FastAPI()
@@ -19,10 +21,17 @@ metadata = json.loads((BASE_DIR / "model_metadata.json").read_text(encoding="utf
 NUMERIC_RANGES = metadata["numeric_ranges"]
 CATEGORIES = metadata["categories"]
 DISCHARGE_CODES = metadata["discharge_codes"]
+TIER_CUTOFFS = metadata["risk_tiers"]["cutoffs"]
+SCORE_QUANTILES = metadata["risk_tiers"]["score_quantiles"]
 
 @app.get("/")
 def read_root():
     return {"status": "API is running"}
+
+@app.get("/model-info")
+def model_info():
+    # Test-set metrics, tier definitions and allowed inputs, all from build_metadata.py
+    return metadata
 
 class PatientData(BaseModel):
     number_inpatient: int
@@ -96,5 +105,9 @@ def predict(patient: PatientData):
 
     return {
         "readmission_risk_score": round(float(risk_score), 3),
-        "high_risk": bool(risk_score > 0.5)
+        # Legacy flag kept for existing callers; risk_tier is the recommended output
+        "high_risk": bool(risk_score > 0.5),
+        "risk_tier": assign_tier(risk_score, TIER_CUTOFFS),
+        "risk_percentile": percentile_rank(risk_score, SCORE_QUANTILES),
+        "model_version": metadata["model_version"],
     }

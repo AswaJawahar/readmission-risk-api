@@ -12,6 +12,8 @@ API_URL = "https://readmission-risk-api-oyvy.onrender.com/predict"
 metadata = json.loads((Path(__file__).resolve().parent / "model_metadata.json").read_text(encoding="utf-8"))
 ranges = metadata["numeric_ranges"]
 categories = metadata["categories"]
+tiers = metadata["risk_tiers"]["tiers"]
+base_rate = metadata["performance"]["base_rate"]
 
 # Labels come from reference/IDS_mapping.csv. Expired / hospice codes are
 # offered too, so the API's out-of-scope message is shown for them.
@@ -85,13 +87,17 @@ if st.button("Predict Readmission Risk", type="primary"):
     if response.status_code == 200:
         result = response.json()
         score = result["readmission_risk_score"]
+        tier = next(t for t in tiers if t["tier"] == result["risk_tier"])
 
         st.metric("Readmission Risk Score", f"{score:.1%}")
 
-        if result["high_risk"]:
-            st.error("⚠️ High Risk — flagged for readmission risk")
-        else:
-            st.success("✅ Lower Risk")
+        tier_text = (
+            f"**{tier['tier']} risk** — higher than about {result['risk_percentile']}% of "
+            f"test-set patients. In the test set, {tier['readmission_rate']:.1%} of "
+            f"{tier['tier'].lower()}-risk patients were readmitted within 30 days "
+            f"(overall: {base_rate:.1%})."
+        )
+        {"High": st.error, "Moderate": st.warning, "Low": st.success}[tier["tier"]](tier_text)
     elif response.status_code == 422:
         for error in response.json()["detail"]:
             if error["type"] == "out_of_scope":

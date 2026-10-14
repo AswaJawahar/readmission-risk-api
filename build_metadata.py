@@ -1,7 +1,8 @@
 """Builds model_metadata.json from the training data and the saved model.
 
-Every value the API validates against comes from here, so nothing is typed in
-by hand. This does not retrain anything: it reproduces the split from
+Every value the API validates against, and every metric the app displays, comes
+from here, so nothing is typed in by hand. This does not retrain anything: it
+reproduces the split from
 exploration.ipynb, loads readmission_model.pkl, and checks the test AUC still
 matches before writing.
 
@@ -16,9 +17,12 @@ import sys
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import brier_score_loss, roc_auc_score
 from sklearn.model_selection import GroupShuffleSplit
+
+from risk import TIERS, assign_tier
 
 BASE_DIR = Path(__file__).resolve().parent
 CSV_PATH = BASE_DIR / "clean_diabetic_data.csv"
@@ -33,6 +37,14 @@ NOT_RECORDED = {"NULL", "Not Mapped"}
 EXPECTED_TEST_AUC = 0.6642
 MIN_CATEGORY_ROWS = 50
 OUT_OF_SCOPE_DISCHARGE_CODES = [11, 13, 14, 19, 20, 21]  # expired / hospice
+
+TIER_PERCENTILES = {"moderate": 50, "high": 90}
+# Subgroups with fewer readmissions than this get counts only, no metrics
+MIN_SUBGROUP_READMISSIONS = 100
+BOOTSTRAP_RESAMPLES = 200
+AGE_BANDS = {"[0-10)": "Under 50", "[10-20)": "Under 50", "[20-30)": "Under 50",
+             "[30-40)": "Under 50", "[40-50)": "Under 50", "[50-60)": "50-69",
+             "[60-70)": "50-69", "[70-80)": "70+", "[80-90)": "70+", "[90-100)": "70+"}
 
 NUMERIC_FIELDS = ["number_inpatient", "number_emergency", "number_diagnoses",
                   "num_medications", "time_in_hospital", "num_lab_procedures"]
@@ -108,6 +120,99 @@ def load_split():
     return df, X, y, train_idx, test_idx
 
 
+def auc_interval(y_true, scores, patients):
+    """95% interval for AUC from a bootstrap that resamples patients, not rows."""
+    rng = np.random.default_rng(0)
+    rows_by_patient = list(pd.Series(np.arange(len(patients))).groupby(patients).indices.values())
+    aucs = []
+    for _ in range(BOOTSTRAP_RESAMPLES):
+        sample = rng.integers(0, len(rows_by_patient), len(rows_by_patient))
+        idx = np.concatenate([rows_by_patient[i] for i in sample])
+        if 0 < y_true[idx].sum() < len(idx):
+            aucs.append(roc_auc_score(y_true[idx], scores[idx]))
+    return [round(float(np.percentile(aucs, 2.5)), 3), round(float(np.percentile(aucs, 97.5)), 3)]
+
+
+def flag_metrics(y_true, flagged):
+    """Precision, recall and specificity when `flagged` patients are treated as positive."""
+    tp = int((flagged & (y_true == 1)).sum())
+    fp = int((flagged & (y_true == 0)).sum())
+    fn = int((~flagged & (y_true == 1)).sum())
+    tn = int((~flagged & (y_true == 0)).sum())
+    return {
+        "flagged_share": round(float(flagged.mean()), 4),
+        "precision": round(tp / (tp + fp), 4),
+        "recall": round(tp / (tp + fn), 4),
+        "specificity": round(tn / (tn + fp), 4),
+    }
+
+
+def risk_tiers(scores, y_true):
+    quantiles = np.percentile(scores, range(101))
+    cutoffs = {name: round(float(quantiles[p]), 4) for name, p in TIER_PERCENTILES.items()}
+    tiers = np.array([assign_tier(s, cutoffs) for s in scores])
+    summary = []
+    for tier in TIERS:
+        in_tier = tiers == tier
+        summary.append({
+            "tier": tier,
+            "encounters": int(in_tier.sum()),
+            "readmitted": int(y_true[in_tier].sum()),
+            "readmission_rate": round(float(y_true[in_tier].mean()), 4),
+            "min_score": round(float(scores[in_tier].min()), 4),
+            "max_score": round(float(scores[in_tier].max()), 4),
+        })
+    return {
+        "basis": "Percentiles of the served model's scores on the test set",
+        "percentiles": TIER_PERCENTILES,
+        "cutoffs": cutoffs,
+        "tiers": summary,
+        "score_quantiles": [round(float(q), 4) for q in quantiles],
+    }, cutoffs
+
+
+def performance(scores, y_true, patients, cutoffs):
+    return {
+        "test_encounters": int(len(y_true)),
+        "readmitted": int(y_true.sum()),
+        "base_rate": round(float(y_true.mean()), 4),
+        "auc": round(float(roc_auc_score(y_true, scores)), 4),
+        "auc_95_interval": auc_interval(y_true, scores, patients),
+        "brier": round(float(brier_score_loss(y_true, scores)), 4),
+        "mean_predicted": round(float(scores.mean()), 4),
+        "at_high_cutoff": flag_metrics(y_true, scores >= cutoffs["high"]),
+        "at_moderate_cutoff": flag_metrics(y_true, scores >= cutoffs["moderate"]),
+    }
+
+
+def subgroups(test, scores, y_true, cutoffs):
+    groups = {"Age": test["age"].map(AGE_BANDS).to_numpy(),
+              "Gender": test["gender"].to_numpy(),
+              "Race": test["race"].to_numpy()}
+    patients = test["patient_nbr"].to_numpy()
+    rows = []
+    age_order = list(dict.fromkeys(AGE_BANDS.values()))
+    for group, values in groups.items():
+        ordered_values = age_order if group == "Age" else sorted(set(values))
+        for value in ordered_values:
+            mask = values == value
+            row = {"group": group, "value": value, "encounters": int(mask.sum()),
+                   "readmitted": int(y_true[mask].sum()),
+                   "readmission_rate": round(float(y_true[mask].mean()), 4)}
+            if row["readmitted"] >= MIN_SUBGROUP_READMISSIONS:
+                flagged = scores[mask] >= cutoffs["high"]
+                row.update({
+                    "auc": round(float(roc_auc_score(y_true[mask], scores[mask])), 4),
+                    "auc_95_interval": auc_interval(y_true[mask], scores[mask], patients[mask]),
+                    "recall_at_high_cutoff": flag_metrics(y_true[mask], flagged)["recall"],
+                    "flagged_high_share": round(float(flagged.mean()), 4),
+                })
+            else:
+                row["note"] = f"Fewer than {MIN_SUBGROUP_READMISSIONS} readmissions; metrics not reported"
+            rows.append(row)
+    return rows
+
+
 def build():
     df, X, y, train_idx, test_idx = load_split()
     model = joblib.load(MODEL_PATH)
@@ -118,6 +223,10 @@ def build():
     if test_auc != EXPECTED_TEST_AUC:
         raise SystemExit(f"Test AUC {test_auc} != expected {EXPECTED_TEST_AUC}; "
                          "the model or preprocessing changed.")
+
+    test = df.iloc[test_idx]
+    y_test = y.iloc[test_idx].to_numpy()
+    tiers, cutoffs = risk_tiers(proba, y_test)
 
     train = df.iloc[train_idx]
 
@@ -153,6 +262,9 @@ def build():
         "categories": categories,
         "excluded_rare_categories": excluded,
         "discharge_codes": discharge_codes,
+        "risk_tiers": tiers,
+        "performance": performance(proba, y_test, test["patient_nbr"].to_numpy(), cutoffs),
+        "subgroups": subgroups(test, proba, y_test, cutoffs),
     }
 
 

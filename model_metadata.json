@@ -160,5 +160,301 @@
       "25": "Not recorded",
       "28": "Discharged/transferred/referred to a psychiatric hospital of psychiatric distinct part unit of a hospital"
     }
-  }
+  },
+  "risk_tiers": {
+    "basis": "Percentiles of the served model's scores on the test set",
+    "percentiles": {
+      "moderate": 50,
+      "high": 90
+    },
+    "cutoffs": {
+      "moderate": 0.1008,
+      "high": 0.188
+    },
+    "tiers": [
+      {
+        "tier": "Low",
+        "encounters": 9902,
+        "readmitted": 659,
+        "readmission_rate": 0.0666,
+        "min_score": 0.025,
+        "max_score": 0.1008
+      },
+      {
+        "tier": "Moderate",
+        "encounters": 7919,
+        "readmitted": 1029,
+        "readmission_rate": 0.1299,
+        "min_score": 0.1008,
+        "max_score": 0.188
+      },
+      {
+        "tier": "High",
+        "encounters": 1981,
+        "readmitted": 528,
+        "readmission_rate": 0.2665,
+        "min_score": 0.188,
+        "max_score": 0.7824
+      }
+    ],
+    "score_quantiles": [
+      0.025,
+      0.0438,
+      0.0477,
+      0.0501,
+      0.0518,
+      0.0532,
+      0.0543,
+      0.0554,
+      0.0565,
+      0.0576,
+      0.0585,
+      0.0595,
+      0.0604,
+      0.0611,
+      0.062,
+      0.0627,
+      0.0634,
+      0.0641,
+      0.0649,
+      0.0656,
+      0.0662,
+      0.067,
+      0.0677,
+      0.0686,
+      0.0693,
+      0.0702,
+      0.0709,
+      0.0716,
+      0.0722,
+      0.0731,
+      0.074,
+      0.0747,
+      0.0755,
+      0.0764,
+      0.0773,
+      0.0782,
+      0.0792,
+      0.08,
+      0.0808,
+      0.0819,
+      0.083,
+      0.0842,
+      0.0856,
+      0.0872,
+      0.089,
+      0.0908,
+      0.0929,
+      0.0953,
+      0.0975,
+      0.099,
+      0.1008,
+      0.1023,
+      0.1038,
+      0.1052,
+      0.1065,
+      0.1078,
+      0.1091,
+      0.1103,
+      0.1114,
+      0.1128,
+      0.1139,
+      0.1152,
+      0.1163,
+      0.1174,
+      0.1186,
+      0.1197,
+      0.1208,
+      0.1221,
+      0.1234,
+      0.1247,
+      0.126,
+      0.1275,
+      0.1292,
+      0.1307,
+      0.1322,
+      0.134,
+      0.136,
+      0.1386,
+      0.1409,
+      0.1436,
+      0.1467,
+      0.1503,
+      0.1537,
+      0.1568,
+      0.1601,
+      0.1641,
+      0.1685,
+      0.1727,
+      0.1778,
+      0.1828,
+      0.188,
+      0.194,
+      0.1996,
+      0.2084,
+      0.2161,
+      0.2294,
+      0.2428,
+      0.2679,
+      0.305,
+      0.37,
+      0.7824
+    ]
+  },
+  "performance": {
+    "test_encounters": 19802,
+    "readmitted": 2216,
+    "base_rate": 0.1119,
+    "auc": 0.6642,
+    "auc_95_interval": [
+      0.65,
+      0.677
+    ],
+    "brier": 0.0948,
+    "mean_predicted": 0.1144,
+    "at_high_cutoff": {
+      "flagged_share": 0.1,
+      "precision": 0.2665,
+      "recall": 0.2383,
+      "specificity": 0.9174
+    },
+    "at_moderate_cutoff": {
+      "flagged_share": 0.4999,
+      "precision": 0.1573,
+      "recall": 0.7026,
+      "specificity": 0.5256
+    }
+  },
+  "subgroups": [
+    {
+      "group": "Age",
+      "value": "Under 50",
+      "encounters": 3193,
+      "readmitted": 349,
+      "readmission_rate": 0.1093,
+      "auc": 0.7058,
+      "auc_95_interval": [
+        0.65,
+        0.75
+      ],
+      "recall_at_high_cutoff": 0.3352,
+      "flagged_high_share": 0.1203
+    },
+    {
+      "group": "Age",
+      "value": "50-69",
+      "encounters": 7735,
+      "readmitted": 820,
+      "readmission_rate": 0.106,
+      "auc": 0.6708,
+      "auc_95_interval": [
+        0.647,
+        0.692
+      ],
+      "recall_at_high_cutoff": 0.2268,
+      "flagged_high_share": 0.0818
+    },
+    {
+      "group": "Age",
+      "value": "70+",
+      "encounters": 8874,
+      "readmitted": 1047,
+      "readmission_rate": 0.118,
+      "auc": 0.6386,
+      "auc_95_interval": [
+        0.623,
+        0.659
+      ],
+      "recall_at_high_cutoff": 0.2149,
+      "flagged_high_share": 0.1086
+    },
+    {
+      "group": "Gender",
+      "value": "Female",
+      "encounters": 10645,
+      "readmitted": 1188,
+      "readmission_rate": 0.1116,
+      "auc": 0.6705,
+      "auc_95_interval": [
+        0.65,
+        0.693
+      ],
+      "recall_at_high_cutoff": 0.2492,
+      "flagged_high_share": 0.1065
+    },
+    {
+      "group": "Gender",
+      "value": "Male",
+      "encounters": 9157,
+      "readmitted": 1028,
+      "readmission_rate": 0.1123,
+      "auc": 0.6576,
+      "auc_95_interval": [
+        0.638,
+        0.676
+      ],
+      "recall_at_high_cutoff": 0.2257,
+      "flagged_high_share": 0.0925
+    },
+    {
+      "group": "Race",
+      "value": "AfricanAmerican",
+      "encounters": 3707,
+      "readmitted": 396,
+      "readmission_rate": 0.1068,
+      "auc": 0.6536,
+      "auc_95_interval": [
+        0.625,
+        0.687
+      ],
+      "recall_at_high_cutoff": 0.2222,
+      "flagged_high_share": 0.1101
+    },
+    {
+      "group": "Race",
+      "value": "Asian",
+      "encounters": 122,
+      "readmitted": 10,
+      "readmission_rate": 0.082,
+      "note": "Fewer than 100 readmissions; metrics not reported"
+    },
+    {
+      "group": "Race",
+      "value": "Caucasian",
+      "encounters": 14886,
+      "readmitted": 1707,
+      "readmission_rate": 0.1147,
+      "auc": 0.663,
+      "auc_95_interval": [
+        0.649,
+        0.681
+      ],
+      "recall_at_high_cutoff": 0.2414,
+      "flagged_high_share": 0.1005
+    },
+    {
+      "group": "Race",
+      "value": "Hispanic",
+      "encounters": 371,
+      "readmitted": 39,
+      "readmission_rate": 0.1051,
+      "note": "Fewer than 100 readmissions; metrics not reported"
+    },
+    {
+      "group": "Race",
+      "value": "Other",
+      "encounters": 298,
+      "readmitted": 26,
+      "readmission_rate": 0.0872,
+      "note": "Fewer than 100 readmissions; metrics not reported"
+    },
+    {
+      "group": "Race",
+      "value": "Unknown",
+      "encounters": 418,
+      "readmitted": 38,
+      "readmission_rate": 0.0909,
+      "note": "Fewer than 100 readmissions; metrics not reported"
+    }
+  ]
 }

@@ -33,15 +33,22 @@ def test_root():
     assert client.get("/").json() == {"status": "API is running"}
 
 
-def test_valid_request_keeps_response_format_and_score():
+def test_valid_request_keeps_original_fields_and_score():
     response = post()
     assert response.status_code == 200
-    assert response.json() == {"readmission_risk_score": 0.067, "high_risk": False}
+    body = response.json()
+    # Original fields unchanged; new fields are additions only
+    assert body["readmission_risk_score"] == 0.067 and body["high_risk"] is False
+    assert set(body) == {"readmission_risk_score", "high_risk", "risk_tier",
+                         "risk_percentile", "model_version"}
+    assert body["risk_tier"] == "Low"
+    assert body["model_version"] == metadata["model_version"]
 
 
 def test_test_set_top_row_reproduces_notebook_score():
-    response = client.post("/predict", json=TEST_SET_TOP_ROW)
-    assert response.json() == {"readmission_risk_score": 0.782, "high_risk": True}
+    body = client.post("/predict", json=TEST_SET_TOP_ROW).json()
+    assert body["readmission_risk_score"] == 0.782 and body["high_risk"] is True
+    assert body["risk_tier"] == "High" and body["risk_percentile"] == 100
 
 
 def test_misspelled_category_is_rejected_with_allowed_values():
