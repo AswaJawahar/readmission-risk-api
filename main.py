@@ -10,6 +10,7 @@ import pandas as pd
 import shap
 
 from explain import explain as explain_factors, summarize
+from knowledge import KnowledgeBase
 from risk import assign_tier, percentile_rank
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -21,6 +22,7 @@ model_features = joblib.load(BASE_DIR / "model_features.pkl")
 explainer = shap.TreeExplainer(model)
 # The model's log-odds before any patient-specific contribution (a 1-element array in shap)
 BASELINE_LOG_ODDS = float(np.ravel(explainer.expected_value)[0])
+knowledge = KnowledgeBase()
 # Allowed values computed from the training split by build_metadata.py
 metadata = json.loads((BASE_DIR / "model_metadata.json").read_text(encoding="utf-8"))
 
@@ -38,6 +40,11 @@ def read_root():
 def model_info():
     # Test-set metrics, tier definitions and allowed inputs, all from build_metadata.py
     return metadata
+
+@app.get("/sources")
+def sources():
+    # Curated knowledge-base sources and how many excerpts still await human review
+    return knowledge.source_list()
 
 class PatientData(BaseModel):
     number_inpatient: int

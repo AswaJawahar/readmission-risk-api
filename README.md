@@ -104,6 +104,25 @@ Each factor has a plain-language description, a direction (raises, lowers, or li
 
 Prior inpatient stays account for 55% of that explanation. The contributions describe how the model arrived at a score, not clinical causes. Computing an explanation takes about 20 ms per request and adds about 30 MB of memory (measured locally, about 210 MB in total).
 
+## Knowledge base
+
+`knowledge_base/sources.json` holds a small, curated set of public sources for the discharge assistant (Stage 5). It has 41 excerpts from 6 sources:
+
+| Source ID | Source |
+|---|---|
+| `ADA-SOC-2026-S16` | American Diabetes Association, *Standards of Care in Diabetes—2026*, Section 16: Diabetes Care in the Hospital |
+| `AHRQ-RED-TOOL1` | AHRQ Re-Engineered Discharge (RED) Toolkit, Tool 1: Overview |
+| `STRACK-2014` | Strack et al., *Impact of HbA1c Measurement on Hospital Readmission Rates* (the paper behind this dataset) |
+| `CMS-HRRP` | CMS Hospital Readmissions Reduction Program |
+| `PSNET-MEDREC` | AHRQ PSNet primer on medication reconciliation |
+| `CDC-DSMES-2021` | CDC Diabetes Report Card 2021: Diabetes Self-Management Education and Support (archived page) |
+
+Each excerpt has a short verbatim quote, a plain-language summary, topic tags, and a `verified_by` field. Content is limited to discharge planning, transitions, follow-up, education, medication reconciliation and readmission context; dosing and treatment content is left out because the assistant is advisory only.
+
+**Review status:** the quotes were copied from the source pages, and `python knowledge_base/check_quotes.py` confirms every quote still appears word for word on its page (it needs internet access). The summaries are drafts. Every excerpt is marked `verified_by: "pending"` until a teammate or faculty reviewer checks it and replaces "pending" with their name. `GET /sources` lists the sources and how many excerpts are still pending.
+
+Retrieval (`knowledge.py`) uses TF-IDF text similarity plus a boost for excerpts tagged with the topics of the patient's risk-raising factors. Gender and race never select guidance. Unrelated questions return no excerpts. Matching is word-based, so a question that uses different words from the source (for example "call the patient" versus "telephone") can miss a relevant excerpt.
+
 ## Running the tests
 
 ```

@@ -1,0 +1,442 @@
+{
+  "schema_version": 1,
+  "review_policy": "Quotes are copied verbatim from the source pages. Summaries are drafts written for this project. Every excerpt keeps verified_by = \"pending\" until a teammate or faculty reviewer checks the quote against the source and confirms the summary is accurate; the reviewer then replaces \"pending\" with their name.",
+  "curation_notes": "Limited to discharge planning, care transitions, follow-up, education, medication reconciliation, and readmission context. Dosing and treatment content (insulin thresholds, prescribing decisions) is deliberately excluded because the assistant is advisory and not a treatment recommender.",
+  "sources": [
+    {
+      "source_id": "ADA-SOC-2026-S16",
+      "title": "16. Diabetes Care in the Hospital: Standards of Care in Diabetes—2026",
+      "publisher": "American Diabetes Association Professional Practice Committee, Diabetes Care 49(Suppl 1)",
+      "year": 2026,
+      "url": "https://doi.org/10.2337/dc26-S016",
+      "retrieved_from": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12690180/",
+      "accessed": "2026-10-13",
+      "excerpts": [
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-01",
+          "section": "Transition From the Hospital to the Ambulatory Setting, Recommendation 16.18 (grade B)",
+          "kind": "recommendation",
+          "quote": "A structured discharge plan should be tailored to the individual with diabetes.",
+          "summary": "Each patient with diabetes should have a structured discharge plan built around their own needs.",
+          "tags": ["care_transitions", "readmission_context"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-02",
+          "section": "Transition From the Hospital to the Ambulatory Setting, Recommendation 16.18 (grade E)",
+          "kind": "recommendation",
+          "quote": "For those not being discharged to home, consider the capabilities of the facility for diabetes management.",
+          "summary": "When a patient is going to a facility rather than home, check that the facility can manage their diabetes care.",
+          "tags": ["discharge_destination", "care_transitions"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-03",
+          "section": "Transition From the Hospital to the Ambulatory Setting",
+          "kind": "recommendation",
+          "quote": "Multiple strategies are key, including diabetes self-management education prior to discharge, diabetes medication reconciliation with attention to access, affordability, and scheduled virtual and/or face-to-face follow-up visits after discharge.",
+          "summary": "Key discharge strategies are diabetes self-management education before discharge, reconciling diabetes medications (including whether the patient can get and afford them), and scheduled follow-up visits in person or virtually.",
+          "tags": ["patient_education", "self_management", "medication_reconciliation", "follow_up"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-04",
+          "section": "Transition From the Hospital to the Ambulatory Setting",
+          "kind": "recommendation",
+          "quote": "Discharge planning should begin at admission and be updated as individual needs change",
+          "summary": "Start discharge planning at admission and update it as the patient's needs change during the stay.",
+          "tags": ["care_transitions", "length_of_stay"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-05",
+          "section": "Transition From the Hospital to the Ambulatory Setting",
+          "kind": "recommendation",
+          "quote": "An outpatient follow-up visit with primary care, endocrinology, or a diabetes care and education specialist within 1 month of discharge is advised for all individuals experiencing hyperglycemia and/or hypoglycemia in the hospital.",
+          "summary": "Patients who had high or low blood glucose in hospital should have a follow-up visit with primary care, endocrinology, or a diabetes educator within a month of discharge.",
+          "tags": ["follow_up", "hypoglycemia"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-06",
+          "section": "Transition From the Hospital to the Ambulatory Setting",
+          "kind": "recommendation",
+          "quote": "If glycemic management medications are changed or glucose management is not optimal at discharge, an earlier appointment (in 1–2 weeks) is preferred",
+          "summary": "If diabetes medications were changed or glucose was not well managed at discharge, an earlier follow-up appointment (within 1 to 2 weeks) is preferred.",
+          "tags": ["follow_up", "diabetes_medications"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-07",
+          "section": "Medication Reconciliation",
+          "kind": "recommendation",
+          "quote": "Home and hospital medications must be cross-checked to ensure the safety of new and old prescriptions, that no chronic medications are stopped, and that there is no duplication of medications under different brand names.",
+          "summary": "Cross-check home and hospital medications so that new and old prescriptions are safe together, no long-term medication is accidentally stopped, and nothing is duplicated under a different brand name.",
+          "tags": ["medication_reconciliation", "medications"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-08",
+          "section": "Structured Discharge Communication",
+          "kind": "recommendation",
+          "quote": "Scheduling follow-up appointments prior to discharge with people with diabetes agreeing to the time and place increases the likelihood that they will attend.",
+          "summary": "Book follow-up appointments before the patient leaves, at a time and place they agree to; this makes attendance more likely.",
+          "tags": ["follow_up"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-09",
+          "section": "Structured Discharge Communication",
+          "kind": "recommendation",
+          "quote": "Discharge summaries should be transmitted to the primary care health care professional as soon as possible after discharge.",
+          "summary": "Send the discharge summary to the patient's primary care clinician as soon as possible after discharge.",
+          "tags": ["discharge_communication", "care_transitions"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-10",
+          "section": "Education for the Person With Diabetes",
+          "kind": "recommendation",
+          "quote": "Review when and how to take blood glucose-lowering medications, including insulin administration and noninsulin injectables.",
+          "summary": "Before discharge, go over when and how the patient takes their glucose-lowering medications, including insulin and other injectables.",
+          "tags": ["diabetes_medications", "patient_education"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-11",
+          "section": "Transition From the Hospital to the Ambulatory Setting",
+          "kind": "recommendation",
+          "quote": "People with diabetes must be provided with appropriate durable medical equipment, medications, supplies (e.g., blood glucose test strips or CGM sensors), prescriptions, and appropriate education at the time of discharge to avoid a potentially dangerous hiatus in care.",
+          "summary": "At discharge, make sure the patient has the equipment, medications, supplies (such as test strips or glucose sensors), prescriptions, and education they need, so there is no dangerous gap in care.",
+          "tags": ["diabetes_medications", "care_transitions", "self_management"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-12",
+          "section": "Preventing Admissions and Readmissions",
+          "kind": "evidence",
+          "quote": "Factors contributing to readmission include male sex, longer duration of prior hospitalization, number of previous hospitalizations, number and severity of comorbidities, and lower socioeconomic and/or educational status; factors that may reduce readmission rates include scheduled home health visits and timely ambulatory follow-up care",
+          "summary": "Readmission is more likely with more previous hospitalizations, longer prior stays, more or more severe other conditions, male sex, and lower socioeconomic or educational status. Scheduled home health visits and timely outpatient follow-up may reduce it.",
+          "tags": ["prior_admissions", "length_of_stay", "comorbidities", "readmission_context", "follow_up"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-13",
+          "section": "Preventing Admissions and Readmissions",
+          "kind": "background",
+          "quote": "For people with diabetes, the hospital readmission rate is between 14% and 20%, which is nearly twice that for people without diabetes",
+          "summary": "People with diabetes are readmitted at 14% to 20%, nearly twice the rate of people without diabetes.",
+          "tags": ["readmission_context"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-14",
+          "section": "Hospital Care Delivery Standards, Recommendation 16.1 (grade B)",
+          "kind": "recommendation",
+          "quote": "Perform an A1C test on all people with diabetes or hyperglycemia (random blood glucose >140 mg/dL [>7.8 mmol/L]) at the time of admission to the hospital if no A1C test result is available from the prior 3 months.",
+          "summary": "Patients with diabetes or high blood glucose should have an A1C test on admission unless one was done in the previous 3 months.",
+          "tags": ["hba1c"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-15",
+          "section": "Hospital Care Delivery Standards",
+          "kind": "recommendation",
+          "quote": "Diabetes self-management education should include the knowledge and skills needed after discharge, such as medication dosing and administration, meal planning, glucose monitoring, and recognition and treatment of hypoglycemia",
+          "summary": "In-hospital diabetes education should cover what the patient needs after discharge: taking medications, meal planning, checking glucose, and recognizing and treating low blood glucose.",
+          "tags": ["patient_education", "self_management", "hypoglycemia"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-16",
+          "section": "Hyperglycemic Crises, Recommendation 16.17 (grade B)",
+          "kind": "recommendation",
+          "quote": "The discharge planning process should include education on the recognition, prevention, and management of DKA and/or HHS for all individuals affected by or at high risk for these events to prevent recurrence and readmission.",
+          "summary": "Patients who had, or are at high risk of, a hyperglycemic crisis (DKA or HHS) should be taught how to recognize, prevent, and respond to it before discharge.",
+          "tags": ["patient_education", "readmission_context"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "ADA-SOC-2026-S16-17",
+          "section": "Preventing Admissions and Readmissions",
+          "kind": "background",
+          "quote": "Age is also an important risk factor in hospitalization and readmission among people with diabetes",
+          "summary": "Age is an important risk factor for hospitalization and readmission in people with diabetes; the ADA's section on older adults covers this in more detail.",
+          "tags": ["age", "readmission_context"],
+          "verified_by": "pending"
+        }
+      ]
+    },
+    {
+      "source_id": "AHRQ-RED-TOOL1",
+      "title": "Re-Engineered Discharge (RED) Toolkit, Tool 1: Overview",
+      "publisher": "Agency for Healthcare Research and Quality (AHRQ)",
+      "year": 2013,
+      "url": "https://www.ahrq.gov/patient-safety/settings/hospital/red/toolkit/redtool1.html",
+      "retrieved_from": "https://www.ahrq.gov/patient-safety/settings/hospital/red/toolkit/redtool1.html",
+      "accessed": "2026-10-13",
+      "excerpts": [
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-01",
+          "section": "Components of the RED",
+          "kind": "recommendation",
+          "quote": "Make appointments for followup care (e.g., medical appointments, postdischarge tests/labs).",
+          "summary": "Book follow-up care before discharge, including medical appointments and any tests or labs needed afterwards.",
+          "tags": ["follow_up"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-02",
+          "section": "Components of the RED",
+          "kind": "recommendation",
+          "quote": "Plan for the followup of results from tests or labs that are pending at discharge.",
+          "summary": "Make a plan for who will follow up on test or lab results that are still pending when the patient leaves.",
+          "tags": ["discharge_communication", "follow_up"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-03",
+          "section": "Components of the RED",
+          "kind": "recommendation",
+          "quote": "Organize postdischarge outpatient services and medical equipment.",
+          "summary": "Arrange the outpatient services and medical equipment the patient will need after discharge.",
+          "tags": ["care_transitions", "discharge_destination"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-04",
+          "section": "Components of the RED",
+          "kind": "recommendation",
+          "quote": "Identify the correct medicines and a plan for the patient to obtain them.",
+          "summary": "Confirm the correct discharge medicines and how the patient will get them.",
+          "tags": ["medications", "medication_reconciliation"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-05",
+          "section": "Components of the RED",
+          "kind": "recommendation",
+          "quote": "Educate the patient about his or her diagnosis and medicines.",
+          "summary": "Teach the patient about their diagnosis and their medicines.",
+          "tags": ["patient_education", "medications"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-06",
+          "section": "Components of the RED",
+          "kind": "recommendation",
+          "quote": "Review with the patient what to do if a problem arises.",
+          "summary": "Go over with the patient what to do if a problem comes up after they get home.",
+          "tags": ["patient_education", "emergency_visits"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-07",
+          "section": "Components of the RED",
+          "kind": "recommendation",
+          "quote": "Assess the degree of the patient's understanding of the discharge plan.",
+          "summary": "Check how well the patient understands their discharge plan.",
+          "tags": ["patient_education"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-08",
+          "section": "Components of the RED",
+          "kind": "recommendation",
+          "quote": "Expedite transmission of the discharge summary to clinicians accepting care of the patient.",
+          "summary": "Send the discharge summary quickly to the clinicians taking over the patient's care.",
+          "tags": ["discharge_communication", "care_transitions"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-09",
+          "section": "Tool 5: How To Conduct a Postdischarge Followup Telephone Call",
+          "kind": "recommendation",
+          "quote": "The postdischarge reinforcement phone call is scheduled within 72 hours of a patient's hospital discharge.",
+          "summary": "A follow-up phone call within 72 hours of discharge reviews appointments, medicines, medical issues, and what to do if a problem arises.",
+          "tags": ["follow_up", "patient_education"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-10",
+          "section": "Components of the RED",
+          "kind": "recommendation",
+          "quote": "Ascertain need for and obtain language assistance.",
+          "summary": "Find out whether the patient needs language assistance and arrange it.",
+          "tags": ["patient_education", "care_transitions"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "AHRQ-RED-TOOL1-11",
+          "section": "Impact of RED",
+          "kind": "evidence",
+          "quote": "Patients who received the RED experienced a 30 percent lower rate of hospital utilization within 30 days of discharge compared to patients receiving usual care.",
+          "summary": "In a randomized trial, patients who received the RED had 30% less hospital use (readmissions and emergency visits) within 30 days than patients receiving usual care.",
+          "tags": ["readmission_context", "care_transitions", "emergency_visits", "prior_admissions"],
+          "verified_by": "pending"
+        }
+      ]
+    },
+    {
+      "source_id": "STRACK-2014",
+      "title": "Impact of HbA1c Measurement on Hospital Readmission Rates: Analysis of 70,000 Clinical Database Patient Records",
+      "publisher": "Strack B, DeShazo JP, Gennings C, et al. BioMed Research International",
+      "year": 2014,
+      "url": "https://doi.org/10.1155/2014/781670",
+      "retrieved_from": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3996476/",
+      "accessed": "2026-10-13",
+      "excerpts": [
+        {
+          "excerpt_id": "STRACK-2014-01",
+          "section": "Abstract",
+          "kind": "evidence",
+          "quote": "Results show that the measurement of HbA1c was performed infrequently (18.4%) in the inpatient setting.",
+          "summary": "In the hospitals behind this project's dataset (1999-2008), an HbA1c test was done in only 18.4% of diabetes admissions.",
+          "tags": ["hba1c", "readmission_context"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "STRACK-2014-02",
+          "section": "Abstract",
+          "kind": "evidence",
+          "quote": "The statistical model suggests that the relationship between the probability of readmission and the HbA1c measurement depends on the primary diagnosis.",
+          "summary": "Whether measuring HbA1c was linked to fewer readmissions depended on the primary diagnosis; the association was seen for patients admitted primarily for diabetes but not for circulatory or respiratory conditions.",
+          "tags": ["hba1c", "primary_diagnosis"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "STRACK-2014-03",
+          "section": "Discussion",
+          "kind": "limitation",
+          "quote": "Our analysis cannot address cause and effect, but the data provide strong support for development of protocols to examine this hypothesis directly.",
+          "summary": "The study shows an association only; it cannot show that measuring HbA1c causes fewer readmissions.",
+          "tags": ["hba1c"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "STRACK-2014-04",
+          "section": "Results",
+          "kind": "background",
+          "quote": "our dataset consists of hospital admissions of length between one and 14 days that did not result in a patient death or discharge to a hospice.",
+          "summary": "The study's dataset (the same data this project's model is trained on) only includes diabetes admissions of 1 to 14 days that did not end in death or discharge to hospice.",
+          "tags": ["readmission_context", "length_of_stay", "discharge_destination"],
+          "verified_by": "pending"
+        }
+      ]
+    },
+    {
+      "source_id": "CMS-HRRP",
+      "title": "Hospital Readmissions Reduction Program (HRRP)",
+      "publisher": "Centers for Medicare & Medicaid Services (CMS)",
+      "year": 2026,
+      "url": "https://www.cms.gov/medicare/payment/prospective-payment-systems/acute-inpatient-pps/hospital-readmissions-reduction-program-hrrp",
+      "retrieved_from": "https://www.cms.gov/medicare/payment/prospective-payment-systems/acute-inpatient-pps/hospital-readmissions-reduction-program-hrrp",
+      "accessed": "2026-10-13",
+      "excerpts": [
+        {
+          "excerpt_id": "CMS-HRRP-01",
+          "section": "Program overview",
+          "kind": "background",
+          "quote": "The Hospital Readmissions Reduction Program is a Medicare value-based purchasing program that, for example, encourages hospitals to improve communication and care coordination to better engage patients and caregivers in discharge plans and, in turn, reduce avoidable readmissions.",
+          "summary": "Medicare's Hospital Readmissions Reduction Program encourages hospitals to improve communication and care coordination and to involve patients and caregivers in discharge plans, to reduce avoidable readmissions.",
+          "tags": ["readmission_context", "care_transitions"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "CMS-HRRP-02",
+          "section": "Payment reduction",
+          "kind": "background",
+          "quote": "The payment reduction is capped at 3 percent (that is, a payment adjustment factor of 0.97).",
+          "summary": "Hospitals with excess readmissions can have their Medicare payments reduced by up to 3%.",
+          "tags": ["readmission_context"],
+          "verified_by": "pending"
+        }
+      ]
+    },
+    {
+      "source_id": "PSNET-MEDREC",
+      "title": "Medication Reconciliation (PSNet Primer)",
+      "publisher": "Agency for Healthcare Research and Quality, Patient Safety Network (PSNet)",
+      "year": 2024,
+      "url": "https://psnet.ahrq.gov/primer/medication-reconciliation",
+      "retrieved_from": "https://psnet.ahrq.gov/primer/medication-reconciliation",
+      "accessed": "2026-10-13",
+      "excerpts": [
+        {
+          "excerpt_id": "PSNET-MEDREC-01",
+          "section": "Background",
+          "kind": "background",
+          "quote": "As a result, the new medication regimen prescribed at the time of discharge may inadvertently omit needed medications, unnecessarily duplicate existing therapies, or contain incorrect dosages.",
+          "summary": "Discharge medication lists can accidentally leave out needed medicines, duplicate existing ones, or contain wrong doses, because hospital clinicians may not have the full home medication list.",
+          "tags": ["medication_reconciliation", "medications"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "PSNET-MEDREC-02",
+          "section": "Background",
+          "kind": "limitation",
+          "quote": "The evidence supporting patient benefits from reconciling medications is mixed and the most effective and generalizable strategies remain unclear.",
+          "summary": "Evidence that medication reconciliation improves patient outcomes is mixed; on its own it has not been shown to reduce readmissions.",
+          "tags": ["medication_reconciliation"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "PSNET-MEDREC-03",
+          "section": "Background",
+          "kind": "evidence",
+          "quote": "Knowing which patient populations- such as children, older adults, and those with polypharmacy- are at higher risk of medication errors and adverse drug events enables clinicians to target patients most likely to benefit.",
+          "summary": "Children, older adults, and patients taking many medications are at higher risk of medication errors, so reconciliation efforts can be focused on them.",
+          "tags": ["medications", "medication_reconciliation", "age"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "PSNET-MEDREC-04",
+          "section": "Background",
+          "kind": "evidence",
+          "quote": "Patients taking high-risk medications such as insulin or anticoagulants may also benefit.",
+          "summary": "Patients on high-risk medications such as insulin may especially benefit from medication reconciliation.",
+          "tags": ["diabetes_medications", "medication_reconciliation"],
+          "verified_by": "pending"
+        }
+      ]
+    },
+    {
+      "source_id": "CDC-DSMES-2021",
+      "title": "Diabetes Self-Management Education and Support (Diabetes Report Card 2021)",
+      "publisher": "Centers for Disease Control and Prevention (CDC), archived page",
+      "year": 2022,
+      "url": "https://archive.cdc.gov/www_cdc_gov/diabetes/library/reports/reportcard/diabetes-self-management-education-support_1702491583.html",
+      "retrieved_from": "https://archive.cdc.gov/www_cdc_gov/diabetes/library/reports/reportcard/diabetes-self-management-education-support_1702491583.html",
+      "accessed": "2026-10-13",
+      "excerpts": [
+        {
+          "excerpt_id": "CDC-DSMES-2021-01",
+          "section": "Diabetes Self-Management Education and Support",
+          "kind": "evidence",
+          "quote": "Diabetes self-management education and support (DSMES) services are scientifically proven to improve management practices among people with diabetes, lowering the risk of complications and improving health outcomes.",
+          "summary": "Diabetes self-management education and support (DSMES) programs improve how people manage their diabetes, lower the risk of complications, and improve health outcomes.",
+          "tags": ["self_management", "patient_education"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "CDC-DSMES-2021-02",
+          "section": "Diabetes Self-Management Education and Support",
+          "kind": "evidence",
+          "quote": "Research shows that DSMES can also help lower health care costs by reducing hospitalizations, hospital readmissions, and emergency room visits for people with diabetes.",
+          "summary": "According to research cited by the CDC, DSMES can lower health care costs by reducing hospitalizations, readmissions, and emergency room visits for people with diabetes.",
+          "tags": ["self_management", "readmission_context", "emergency_visits", "prior_admissions"],
+          "verified_by": "pending"
+        },
+        {
+          "excerpt_id": "CDC-DSMES-2021-03",
+          "section": "Diabetes Self-Management Education and Support",
+          "kind": "background",
+          "quote": "Although DSMES are offered in 56% of counties across the United States, 62% of rural counties have limited access to these services.",
+          "summary": "Access to DSMES is uneven: it is offered in 56% of US counties, and 62% of rural counties have limited access.",
+          "tags": ["self_management", "follow_up"],
+          "verified_by": "pending"
+        }
+      ]
+    }
+  ]
+}
