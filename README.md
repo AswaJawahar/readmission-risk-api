@@ -19,7 +19,7 @@ Hospitals are financially penalized (via CMS's Hospital Readmissions Reduction P
 
 Real hospital data required real decisions, not just default pandas behavior:
 
-- **`max_glu_serum` / `A1Cresult`**: pandas silently treats the literal string `"None"` as missing data on load — but in this dataset, `"None"` means "this test wasn't ordered," a meaningful clinical signal, not an absence of data. Restored as its own category.
+- **`max_glu_serum` / `A1Cresult`**: pandas silently treats the literal string `"None"` as missing data on load — but in this dataset, `"None"` means "this test wasn't ordered," a meaningful clinical signal, not an absence of data. Restored as its own category. (These lab fields feed the 110-feature comparison model; the served 14-field model does not use them.)
 - **Diagnosis codes (`diag_1/2/3`)**: ~700 raw ICD-9 codes per column were grouped into 9 clinically meaningful categories (Circulatory, Respiratory, Diabetes, etc.) using standard ICD-9 range boundaries, rather than left as high-cardinality raw codes.
 - **Death/hospice discharges excluded**: 2,423 encounters ending in death or hospice transfer (`discharge_disposition_id` 11, 13, 14, 19, 20, 21) were removed before encoding and the train/test split, leaving 99,343 encounters, since 30-day readmission isn't clinically possible for these cases — leaving them in would have taught the model a spurious "did this patient die" signal instead of a genuine readmission risk signal.
 
@@ -29,15 +29,17 @@ Patients can appear in this dataset multiple times (repeat encounters). A naive 
 
 ## Model comparison
 
-Three models were trained and evaluated on the same leak-free split (79,541 training / 19,802 test encounters, 110 encoded features):
+Three models were trained and evaluated on the same leak-free split (79,541 training / 19,802 test encounters), using only the 14 fields the API accepts (51 encoded columns):
 
 | Model | AUC |
 |---|---|
 | Logistic Regression | 0.648 |
-| Random Forest | 0.633 |
-| **Gradient Boosting (chosen)** | **0.663** |
+| Random Forest | 0.630 |
+| **Gradient Boosting (chosen)** | **0.664** |
 
-The Gradient Boosting model relies mostly on two features: `number_inpatient` (prior inpatient visits, importance 0.544) and `discharge_disposition_id` (0.216). Its highest predicted probability on the test set is 0.776.
+The served Gradient Boosting model relies mostly on two features: `number_inpatient` (prior inpatient visits, importance 0.552) and `discharge_disposition_id` (0.229). Its highest predicted probability on the test set is 0.782.
+
+*History:* trained on all 110 encoded features (including admission type/source, procedures, outpatient visits, lab results and individual medications), the same models scored Logistic Regression 0.648, Random Forest 0.633 and Gradient Boosting 0.663.
 
 This result closely matches published benchmarks on this exact dataset (independent studies report XGBoost/Gradient Boosting AUC in the 0.63–0.67 range), which suggests ~0.66 reflects a practical ceiling for structured administrative data alone — not a modeling shortfall. Richer inputs (lab trends over time, clinical notes, social determinants of health) are what published work uses to push meaningfully past this range.
 
@@ -48,14 +50,33 @@ Streamlit front-end  →  FastAPI /predict endpoint  →  saved Gradient Boostin
    (user-facing form)      (Render, always-on)          (scikit-learn, .pkl)
 ```
 
-The API accepts 14 input fields (Pydantic checks field names and types), one-hot encodes them, and aligns the result to the model's 110 training columns with `reindex(columns=model_features, fill_value=0)`. In practice this means:
+The API accepts 14 input fields (Pydantic checks field names and types), one-hot encodes them, and aligns the result to the model's 51 training columns with `reindex(columns=model_features, fill_value=0)`. Every model input comes from a field the caller sends.
 
-- **Unknown categories are silently treated as the baseline.** A category value the model never saw (including a typo such as `"Femle"`) produces a column that `reindex` drops, so the row looks identical to the reference category dropped during training (`drop_first=True`): race → AfricanAmerican, gender → Female, age → [0-10), diagnosis group → Circulatory, diabetesMed → No. No error is raised.
-- **The 59 model columns that come from fields the API doesn't accept are filled with 0.** The 14 inputs cover 51 of the 110 columns. For the omitted numeric fields `admission_type_id` and `admission_source_id`, 0 lies outside the training range (minimum 1); `num_procedures` and `number_outpatient` become 0. For omitted categorical fields, all-zero dummies encode the reference category: `max_glu_serum` ">200", `A1Cresult` ">7", `change` "Ch", dose "Down" for the 13 medications that have that level (including insulin and metformin), and "No" for the rest. Every API prediction is therefore made as if those values applied.
+**Unknown categories are silently treated as the baseline.** A category value the model never saw (including a typo such as `"Femle"`) produces a column that `reindex` drops, so the row looks identical to the reference category dropped during training (`drop_first=True`): race → AfricanAmerican, gender → Female, age → [0-10), diagnosis group → Circulatory, diabetesMed → No. No error is raised.
+
+## Why the 14-field model
+
+The original model was trained on 110 encoded columns, but the API only receives 14 fields (51 columns). The other 59 columns were filled with 0 at prediction time, which silently assumed things like admission type "0" (not a real code), glucose ">200", A1C ">7" and a dose decrease for insulin and metformin. Three ways of serving predictions were compared on the same test set (2,216 of 19,802 encounters readmitted within 30 days, rate 0.112):
+
+| Option | AUC | Brier | Mean predicted risk | Max score |
+|---|---|---|---|---|
+| 110-feature model, 59 columns = 0 (previously served) | 0.6626 | 0.0949 | 0.109 | 0.770 |
+| 110-feature model, 59 columns = training-set defaults | 0.6618 | 0.0948 | 0.117 | 0.836 |
+| **Model retrained on the 14 API fields (now served)** | **0.6642** | **0.0948** | **0.114** | **0.782** |
+
+AUC differences, with 95% intervals from 500 paired bootstrap resamples of test-set patients:
+
+| Comparison | AUC difference | 95% interval |
+|---|---|---|
+| 14-field minus training defaults | +0.0025 | +0.0010 to +0.0040 |
+| Training defaults minus zero-filled | −0.0008 | −0.0024 to +0.0008 |
+| 14-field minus zero-filled | +0.0016 | −0.0004 to +0.0035 |
+
+The differences in ranking ability are small; the omitted fields carried little predictive weight. The 14-field model was chosen because every input it uses is something the user actually entered, so explanations of a prediction can never point to a value nobody provided. It also has the best AUC and its average predicted risk (0.114) is closest to the actual rate (0.112). The full comparison is in `exploration.ipynb`.
 
 ## A bug worth mentioning
 
-During API testing of an earlier model version, no input could produce a "high risk" flag. Investigation traced this to a real defect: `diag_3_group` had been omitted from the API's input fields entirely — a real predictive signal the API could never receive, no matter what a user entered. Adding it back let high-risk inputs reach scores close to the test set's highest predicted probability. (For the current model, that maximum is 0.776.)
+During API testing of an earlier model version, no input could produce a "high risk" flag. Investigation traced this to a real defect: `diag_3_group` had been omitted from the API's input fields entirely — a real predictive signal the API could never receive, no matter what a user entered. Adding it back let high-risk inputs reach scores close to the test set's highest predicted probability. (For the current model, that maximum is 0.782, and the API returns exactly 0.782 for that test encounter.)
 
 ## Tech stack
 
@@ -64,6 +85,6 @@ Python, pandas, scikit-learn, FastAPI, Uvicorn, Streamlit, deployed on Render (A
 ## Limitations
 
 - Trained on 1999–2008 administrative data; may not reflect current clinical practice.
-- The API takes a simplified 14-field input set rather than the full 110-column training feature set; the missing columns are zero-filled as described under Architecture, which affects every prediction.
+- The model uses 14 fields; lab results (A1C, glucose), individual diabetes medications, admission type/source, procedures and outpatient visits are not used.
 - The API does not yet reject death/hospice discharge codes or unknown category values; only the Streamlit front-end blocks death/hospice codes.
 - AUC ~0.66 reflects real, published performance limits of this dataset — not a target for clinical deployment as-is.
