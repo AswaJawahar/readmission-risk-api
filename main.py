@@ -70,10 +70,10 @@ class PatientData(BaseModel):
         if value in DISCHARGE_CODES["out_of_scope"]:
             raise PydanticCustomError(
                 "out_of_scope",
-                "Discharge disposition {value} means the patient expired or went to hospice. "
-                "These encounters were excluded from training because 30-day readmission "
-                "isn't clinically possible, so no prediction is made.",
-                {"value": value},
+                "Discharge disposition {value} ({label}) means the patient expired or went to "
+                "hospice. These encounters were excluded from training because 30-day "
+                "readmission isn't clinically possible, so no prediction is made.",
+                {"value": value, "label": DISCHARGE_CODES["labels"][str(value)]},
             )
         if value not in DISCHARGE_CODES["allowed"]:
             raise PydanticCustomError(

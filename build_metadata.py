@@ -9,6 +9,7 @@ Needs clean_diabetic_data.csv (gitignored), so it runs locally:
     python build_metadata.py           # write model_metadata.json
     python build_metadata.py --check   # exit 1 if the committed file is stale
 """
+import csv
 import hashlib
 import json
 import sys
@@ -24,6 +25,9 @@ CSV_PATH = BASE_DIR / "clean_diabetic_data.csv"
 MODEL_PATH = BASE_DIR / "readmission_model.pkl"
 FEATURES_PATH = BASE_DIR / "model_features.pkl"
 METADATA_PATH = BASE_DIR / "model_metadata.json"
+# ID descriptions shipped with the UCI dataset
+IDS_MAPPING_PATH = BASE_DIR / "reference" / "IDS_mapping.csv"
+NOT_RECORDED = {"NULL", "Not Mapped"}
 
 # Test AUC of the saved model; a mismatch means the model or the preprocessing changed
 EXPECTED_TEST_AUC = 0.6642
@@ -62,6 +66,21 @@ def categorize_diagnosis(code):
         return "Neoplasms"
     else:
         return "Other"
+
+
+def load_discharge_labels():
+    """Reads the discharge_disposition_id section of IDS_mapping.csv."""
+    labels, in_section = {}, False
+    with open(IDS_MAPPING_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.reader(f):
+            if row and row[0] == "discharge_disposition_id":
+                in_section = True
+            elif in_section:
+                if not row or not row[0].strip():
+                    break
+                description = row[1].strip().rstrip(" .")
+                labels[int(row[0])] = "Not recorded" if description in NOT_RECORDED else description
+    return labels
 
 
 def load_split():
@@ -114,11 +133,14 @@ def build():
             excluded[f] = dict(sorted(rare.items()))
 
     code_counts = train["discharge_disposition_id"].value_counts()
+    allowed_codes = sorted(int(c) for c, n in code_counts.items() if n >= MIN_CATEGORY_ROWS)
+    labels = load_discharge_labels()
     discharge_codes = {
-        "allowed": sorted(int(c) for c, n in code_counts.items() if n >= MIN_CATEGORY_ROWS),
+        "allowed": allowed_codes,
         "out_of_scope": OUT_OF_SCOPE_DISCHARGE_CODES,
         "excluded_rare": {str(c): int(n) for c, n in sorted(code_counts.items())
                           if n < MIN_CATEGORY_ROWS},
+        "labels": {str(c): labels[c] for c in sorted(allowed_codes + OUT_OF_SCOPE_DISCHARGE_CODES)},
     }
 
     return {

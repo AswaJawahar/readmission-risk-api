@@ -13,29 +13,16 @@ metadata = json.loads((Path(__file__).resolve().parent / "model_metadata.json").
 ranges = metadata["numeric_ranges"]
 categories = metadata["categories"]
 
-# Labels from the UCI dataset's IDs_mapping. 11/13/14 (expired / hospice) stay
-# in the list so the API's out-of-scope message is shown for them.
-discharge_labels = {
-    1: "Discharged to home",
-    2: "Discharged/transferred to another short term hospital",
-    3: "Discharged/transferred to SNF",
-    4: "Discharged/transferred to ICF",
-    5: "Discharged/transferred to another type of inpatient care institution",
-    6: "Discharged/transferred to home with home health service",
-    7: "Left AMA",
-    8: "Discharged/transferred to home under care of Home IV provider",
-    11: "Expired",
-    13: "Hospice / home",
-    14: "Hospice / medical facility",
-    15: "Discharged/transferred within this institution to Medicare approved swing bed",
-    18: "NULL",
-    22: "Discharged/transferred to another rehab facility",
-    23: "Discharged/transferred to a long term care hospital",
-    25: "Not Mapped",
-    28: "Discharged/transferred/referred to a psychiatric hospital or psychiatric unit",
-}
-offered_codes = set(metadata["discharge_codes"]["allowed"]) | set(metadata["discharge_codes"]["out_of_scope"])
-discharge_options = {k: v for k, v in discharge_labels.items() if k in offered_codes}
+# Labels come from reference/IDS_mapping.csv. Expired / hospice codes are
+# offered too, so the API's out-of-scope message is shown for them.
+discharge_labels = {int(code): label for code, label in metadata["discharge_codes"]["labels"].items()}
+label_counts = {label: list(discharge_labels.values()).count(label) for label in discharge_labels.values()}
+
+
+def discharge_label(code):
+    # Two codes share "Not recorded" (NULL / Not Mapped); show the code to tell them apart
+    label = discharge_labels[code]
+    return f"{label} (code {code})" if label_counts[label] > 1 else label
 
 
 def ordered(preferred, allowed):
@@ -54,8 +41,8 @@ col1, col2 = st.columns(2)
 
 with col1:
     number_inpatient = number_input("Prior inpatient visits", "number_inpatient", 0)
-    discharge_label = st.selectbox("Discharge disposition", list(discharge_options.values()))
-    discharge_disposition_id = [k for k, v in discharge_options.items() if v == discharge_label][0]
+    discharge_disposition_id = st.selectbox("Discharge disposition", list(discharge_labels),
+                                            format_func=discharge_label)
     number_emergency = number_input("Prior emergency visits", "number_emergency", 0)
     number_diagnoses = number_input("Number of diagnoses", "number_diagnoses", 5)
     num_medications = number_input("Number of medications", "num_medications", 15)

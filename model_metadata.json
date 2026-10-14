@@ -137,6 +137,28 @@
       "17": 13,
       "24": 38,
       "27": 4
+    },
+    "labels": {
+      "1": "Discharged to home",
+      "2": "Discharged/transferred to another short term hospital",
+      "3": "Discharged/transferred to SNF",
+      "4": "Discharged/transferred to ICF",
+      "5": "Discharged/transferred to another type of inpatient care institution",
+      "6": "Discharged/transferred to home with home health service",
+      "7": "Left AMA",
+      "8": "Discharged/transferred to home under care of Home IV provider",
+      "11": "Expired",
+      "13": "Hospice / home",
+      "14": "Hospice / medical facility",
+      "15": "Discharged/transferred within this institution to Medicare approved swing bed",
+      "18": "Not recorded",
+      "19": "Expired at home. Medicaid only, hospice",
+      "20": "Expired in a medical facility. Medicaid only, hospice",
+      "21": "Expired, place unknown. Medicaid only, hospice",
+      "22": "Discharged/transferred to another rehab fac including rehab units of a hospital",
+      "23": "Discharged/transferred to a long term care hospital",
+      "25": "Not recorded",
+      "28": "Discharged/transferred/referred to a psychiatric hospital of psychiatric distinct part unit of a hospital"
     }
   }
 }

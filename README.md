@@ -62,7 +62,7 @@ Every request is checked against `model_metadata.json`, which `build_metadata.py
 | `out_of_range` | A number outside the training min/max | `number_inpatient must be between 0 and 21 (the range seen in training data); got 22` |
 | `out_of_scope` | Discharge codes 11, 13, 14, 19, 20, 21 (expired / hospice) | `…excluded from training because 30-day readmission isn't clinically possible, so no prediction is made.` |
 
-Values with fewer than 50 training rows are also rejected, because the model has too little data on them: gender `Unknown/Invalid` (3 rows) and discharge codes 9 (18), 10 (3), 12 (3), 16 (8), 17 (13), 24 (38) and 27 (4). Valid requests get exactly the same response as before. The Streamlit form reads the same file, so it only offers values the API accepts.
+Values with fewer than 50 training rows are also rejected, because the model has too little data on them: gender `Unknown/Invalid` (3 rows) and discharge codes 9 (18), 10 (3), 12 (3), 16 (8), 17 (13), 24 (38) and 27 (4). Valid requests get exactly the same response as before. The Streamlit form reads the same file, so it only offers values the API accepts. Discharge disposition labels come from the dataset's own `reference/IDS_mapping.csv`; codes 18 (`NULL`) and 25 (`Not Mapped`) are shown as "Not recorded".
 
 Before this check existed, an unknown category such as `"Femle"` was silently scored as the baseline category with no error.
 

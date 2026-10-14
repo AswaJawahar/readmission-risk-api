@@ -33,8 +33,16 @@ def test_default_prediction(form):
     assert form.metric[0].value == "6.7%"
 
 
+def test_discharge_labels_come_from_ids_mapping(form):
+    options = widget(form.selectbox, "Discharge disposition").options
+    assert options[0] == "Discharged to home"
+    assert "Not recorded (code 18)" in options and "Not recorded (code 25)" in options
+    assert not any(label in options for label in ("NULL", "Not Mapped"))
+
+
 def test_expired_shows_out_of_scope_message(form):
-    widget(form.selectbox, "Discharge disposition").select("Expired").run()
+    discharge = widget(form.selectbox, "Discharge disposition")
+    discharge.select_index(discharge.options.index("Expired")).run()
     form.button[0].click().run()
     assert not form.metric
     assert "no prediction is made" in form.warning[0].value
