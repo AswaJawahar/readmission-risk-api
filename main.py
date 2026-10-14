@@ -5,8 +5,11 @@ from fastapi import FastAPI
 from pydantic import BaseModel, field_validator
 from pydantic_core import PydanticCustomError
 import joblib
+import numpy as np
 import pandas as pd
+import shap
 
+from explain import explain as explain_factors, summarize
 from risk import assign_tier, percentile_rank
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -15,6 +18,9 @@ app = FastAPI()
 
 model = joblib.load(BASE_DIR / "readmission_model.pkl")
 model_features = joblib.load(BASE_DIR / "model_features.pkl")
+explainer = shap.TreeExplainer(model)
+# The model's log-odds before any patient-specific contribution (a 1-element array in shap)
+BASELINE_LOG_ODDS = float(np.ravel(explainer.expected_value)[0])
 # Allowed values computed from the training split by build_metadata.py
 metadata = json.loads((BASE_DIR / "model_metadata.json").read_text(encoding="utf-8"))
 
@@ -93,14 +99,13 @@ class PatientData(BaseModel):
             )
         return value
 
-@app.post("/predict")
-def predict(patient: PatientData):
-    input_dict = patient.model_dump()
+def encode(input_dict):
     input_df = pd.DataFrame([input_dict])
 
     input_encoded = pd.get_dummies(input_df)
-    input_encoded = input_encoded.reindex(columns=model_features, fill_value=0)
+    return input_encoded.reindex(columns=model_features, fill_value=0)
 
+def score_response(input_encoded):
     risk_score = model.predict_proba(input_encoded)[0][1]
 
     return {
@@ -110,4 +115,24 @@ def predict(patient: PatientData):
         "risk_tier": assign_tier(risk_score, TIER_CUTOFFS),
         "risk_percentile": percentile_rank(risk_score, SCORE_QUANTILES),
         "model_version": metadata["model_version"],
+    }
+
+@app.post("/predict")
+def predict(patient: PatientData):
+    return score_response(encode(patient.model_dump()))
+
+@app.post("/explain")
+def explain(patient: PatientData):
+    input_dict = patient.model_dump()
+    input_encoded = encode(input_dict)
+    shap_row = explainer.shap_values(input_encoded.astype(float))[0]
+    factors = explain_factors(input_dict, shap_row, model_features, DISCHARGE_CODES["labels"])
+
+    return {
+        **score_response(input_encoded),
+        "summary": summarize(factors),
+        "factors": factors,
+        "baseline_log_odds": round(BASELINE_LOG_ODDS, 4),
+        "method": ("SHAP (TreeExplainer) contributions to the model's log-odds, summed per input "
+                   "field. They show how the model arrived at this score, not clinical causes."),
     }

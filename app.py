@@ -4,7 +4,8 @@ from pathlib import Path
 import streamlit as st
 import requests
 
-API_URL = "https://readmission-risk-api-oyvy.onrender.com/predict"
+# /explain returns everything /predict does, plus the factors behind the score
+API_URL = "https://readmission-risk-api-oyvy.onrender.com/explain"
 
 # Same allowed values and ranges the API validates against (built from the
 # training split by build_metadata.py), so the form never offers a value the
@@ -98,6 +99,16 @@ if st.button("Predict Readmission Risk", type="primary"):
             f"(overall: {base_rate:.1%})."
         )
         {"High": st.error, "Moderate": st.warning, "Low": st.success}[tier["tier"]](tier_text)
+
+        st.subheader("What drove this score")
+        st.write(result["summary"])
+        arrows = {"raises": "▲ Raises risk", "lowers": "▼ Lowers risk", "minimal": "• Little effect"}
+        for factor in result["factors"][:5]:
+            st.markdown(f"{arrows[factor['direction']]} — {factor['description']} "
+                        f"({factor['share']:.0%} of the explanation)")
+        st.caption("These factors show how the model arrived at this score, not clinical causes. "
+                   "Age, gender and race are shown because the model uses them; they are not "
+                   "things discharge planning can change.")
     elif response.status_code == 422:
         for error in response.json()["detail"]:
             if error["type"] == "out_of_scope":

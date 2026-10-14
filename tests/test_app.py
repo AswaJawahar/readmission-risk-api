@@ -12,7 +12,8 @@ api_client = TestClient(api)
 @pytest.fixture
 def form(monkeypatch):
     # Route the form's request to the in-process API instead of Render
-    monkeypatch.setattr(requests, "post", lambda url, json: api_client.post("/predict", json=json))
+    monkeypatch.setattr(requests, "post",
+                        lambda url, json: api_client.post("/" + url.rsplit("/", 1)[1], json=json))
     at = AppTest.from_file("../app.py", default_timeout=30)
     at.run()
     assert not at.exception
@@ -36,6 +37,13 @@ def test_default_prediction_shows_tier_and_its_real_rate(form):
     message = form.success[0].value
     assert message.startswith("**Low risk**")
     assert f"{low['readmission_rate']:.1%} of low-risk patients" in message
+
+
+def test_prediction_lists_top_factors(form):
+    form.button[0].click().run()
+    lines = [m.value for m in form.markdown if "of the explanation" in m.value]
+    assert len(lines) == 5
+    assert lines[0].startswith("▼ Lowers risk — 0 inpatient stays in the year before this admission")
 
 
 def test_discharge_labels_come_from_ids_mapping(form):
