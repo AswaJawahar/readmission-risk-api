@@ -75,6 +75,7 @@ def measurement_text(kind):
         runs = [json.loads(line) for line in history.read_text(encoding="utf-8").splitlines() if line.strip()]
         text += " All runs: " + "; ".join(
             f"{r['checked_at_utc']} first {r['first_response_seconds']} s ({'asleep' if r['looked_cold'] else 'awake'})"
+            + (" [manually transcribed]" if r.get("source") else "")
             for r in runs) + "."
     return text
 
@@ -102,7 +103,17 @@ def git_commit():
     return out.stdout.strip() + (" (plus uncommitted changes)" if dirty else "")
 
 
-def write_xlsx(rows, defects, corrected, summary):
+FEEDBACK_COLUMNS = ["ID", "From", "Suggestion", "Decision", "Rationale", "Follow-up"]
+BLANK_FEEDBACK_ROWS = 5
+
+
+def feedback_rows(feedback):
+    rows = [[f["id"], f["from"], f["suggestion"], f["decision"], f["rationale"], f["follow_up"]] for f in feedback]
+    start = len(rows) + 1
+    return rows + [[f"PF-{i}", "", "", "", "", ""] for i in range(start, start + BLANK_FEEDBACK_ROWS)]
+
+
+def write_xlsx(rows, defects, corrected, summary, feedback):
     wb = Workbook()
     header_fill = PatternFill("solid", fgColor="DCE6F2")
     fills = {"Pass": PatternFill("solid", fgColor="E3F6EA"), "Fail": PatternFill("solid", fgColor="FDECEC"),
@@ -136,11 +147,12 @@ def write_xlsx(rows, defects, corrected, summary):
     sheet(wb.create_sheet("Corrected tests"), ["ID", "Test", "Problem", "Correction", "When"],
           [[c["id"], c["test"], c["problem"], c["correction"], c["when"]] for c in corrected],
           [6, 44, 60, 50, 22])
+    sheet(wb.create_sheet("Peer feedback"), FEEDBACK_COLUMNS, feedback_rows(feedback), [8, 16, 44, 14, 60, 26])
     sheet(wb.create_sheet("Run summary"), ["Item", "Value"], [[k, v] for k, v in summary.items()], [28, 90])
     wb.save(TESTING / "test_cases.xlsx")
 
 
-def write_html(rows, defects, corrected, summary, results):
+def write_html(rows, defects, corrected, summary, results, feedback):
     e = html.escape
     badge = {"Pass": "pass", "Fail": "fail", "Not run": "notrun", "passed": "pass", "failed": "fail", "skipped": "notrun"}
 
@@ -207,6 +219,10 @@ means the defect was found and fixed while the stage was being built, so the fix
 {table(['ID', 'Test', 'Problem', 'Correction', 'When'],
        [[c['id'], c['test'], c['problem'], c['correction'], c['when']] for c in corrected])}
 
+<h2>Peer feedback</h2>
+<p class="muted">Suggestions from peer review and what was decided. Blank rows are left for further feedback.</p>
+{table(FEEDBACK_COLUMNS, feedback_rows(feedback))}
+
 <h2>Every test in this run</h2>
 <details><summary>{len(all_tests)} test runs (parametrized tests count once per parameter set)</summary>
 {table(['Test', 'Outcome', 'Seconds', 'Message'], all_tests, status_index=1)}
@@ -241,8 +257,9 @@ def main():
         "Python": platform.python_version(),
         "Platform": platform.platform(),
     }
-    write_xlsx(rows, log["defects"], log["corrected_tests"], summary)
-    write_html(rows, log["defects"], log["corrected_tests"], summary, results)
+    feedback = json.loads((TESTING / "peer_feedback.json").read_text(encoding="utf-8"))["feedback"]
+    write_xlsx(rows, log["defects"], log["corrected_tests"], summary, feedback)
+    write_html(rows, log["defects"], log["corrected_tests"], summary, results, feedback)
     statuses = Counter(r["Pass/Fail"] for r in rows)
     print(f"pytest: {pytest_summary}")
     print(f"test cases: {dict(statuses)}  ->  testing/test_cases.xlsx, testing/test_report.html")

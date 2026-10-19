@@ -18,7 +18,9 @@ from test_predict import TEST_SET_TOP_ROW
 
 LIVE_API = os.environ.get("LIVE_API_URL", "https://readmission-risk-api-oyvy.onrender.com")
 RESULTS = Path(__file__).resolve().parent.parent / "testing" / "results"
-FIRST_RESPONSE_LIMIT_S = 120   # allowance for a Render wake-up
+# Allowance for a Render free-tier wake-up. Set when this test was written, before its first run
+# (which then measured 71.5 s); a judgement call, not a figure from the requirements.
+FIRST_RESPONSE_LIMIT_S = 120
 WARM_LIMIT_S = 5               # NFR: results "within a few seconds" once running
 
 pytestmark = pytest.mark.skipif(os.environ.get("RUN_LIVE_TESTS") != "1",

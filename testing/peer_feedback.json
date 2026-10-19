@@ -1,0 +1,12 @@
+{
+  "feedback": [
+    {
+      "id": "PF-1",
+      "from": "Peer review",
+      "suggestion": "Incorporate prior records from other hospitals and primary care providers (PCPs).",
+      "decision": "Out of scope",
+      "rationale": "The UCI dataset has no records from other hospitals or PCPs, and getting them would need EHR integration and data-access agreements, which the Lab 4 requirements exclude for this one-semester proof of concept.",
+      "follow_up": "Listed as future work."
+    }
+  ]
+}
