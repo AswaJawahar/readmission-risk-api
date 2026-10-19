@@ -223,4 +223,5 @@ Python, pandas, scikit-learn, SHAP, FastAPI, Uvicorn, Streamlit, deployed on Ren
 - Trained on 1999–2008 administrative data; may not reflect current clinical practice.
 - The model uses 14 fields; lab results (A1C, glucose), individual diabetes medications, admission type/source, procedures and outpatient visits are not used.
 - AUC ~0.66 reflects real, published performance limits of this dataset — not a target for clinical deployment as-is.
+- The API runs on Render's free tier, which puts the service to sleep when idle. The first request after a quiet period can take about a minute (a cold-start test measured 71.5 s); requests after that took 0.2–0.3 s.
 - The assistant's scope and prompt-injection checks are keyword-based. They catch common phrasings (dose requests, "ignore previous instructions") but are not robust against determined attempts, such as rewording, misspellings or other languages. The citation check limits what an LLM's reply can contain, but a clinician still has to review every suggestion.

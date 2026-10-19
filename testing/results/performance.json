@@ -1,0 +1,19 @@
+{
+  "requests": 50,
+  "startup_seconds": 3.39,
+  "rss_after_startup_mb": 209.4,
+  "rss_peak_mb": 214.4,
+  "latency_ms": {
+    "median_all": 40.3,
+    "p95_all": 63.5,
+    "max_all": 79.0,
+    "median_predict": 40.2,
+    "median_explain": 37.0,
+    "median_assistant": 43.5
+  },
+  "limits": {
+    "memory_mb": 512,
+    "p95_ms": 2000
+  },
+  "measured_on": "win32"
+}

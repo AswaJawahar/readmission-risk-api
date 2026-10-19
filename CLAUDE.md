@@ -32,7 +32,9 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 | 4. Curated knowledge base, retrieval, review spreadsheet | Done, on master (all excerpts still `pending` review) |
 | 5. `/assistant`, grounded and cited, with guardrails | Done, on master (rule-based; no real LLM provider yet) |
 | 6. Streamlit redesign: patient queue, dashboard, What-if, About | Done, on master |
-| 7. Metadata-only audit logging and mock role-based access | Built on `ai-discharge-support`, awaiting review |
+| 7. Metadata-only audit logging and mock role-based access | Done, on master |
+| UI polish pass (themes, risk card, factor bars, navy sidebar) | Done, on master |
+| MIS 7623 Testing Lab: test cases, report, defect log (`testing/`) | Committed on `ai-discharge-support` |
 
 ## Key decisions
 
@@ -54,6 +56,7 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
   `python build_metadata.py` (regenerate `model_metadata.json` after any model change),
   `python build_patient_queue.py` (regenerate `demo/patient_queue.json`). Tests that need it are skipped elsewhere.
 - Tests: `venv/Scripts/python.exe -m pytest` (dev deps in `requirements-dev.txt`).
+- Test report: `python testing/generate_report.py` (add `--live` to include the cold-start test against Render). Test cases live in `testing/test_cases.json`, defects and corrected tests in `testing/defects.json`; Actual and Pass/Fail are filled in from the real run. The live test is skipped unless `RUN_LIVE_TESTS=1`.
 - Running `exploration.ipynb` end to end retrains and overwrites the `.pkl` files — that counts as retraining.
 - Knowledge-base review: `knowledge_base/review_sheet.xlsx`, then `python knowledge_base/review_sheet.py apply --dry-run`
   / `apply`. Don't re-export the sheet while someone may have unsaved edits (check `git diff` and Excel's

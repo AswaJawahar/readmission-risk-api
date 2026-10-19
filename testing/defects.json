@@ -1,0 +1,204 @@
+{
+  "defects": [
+    {
+      "id": "D1",
+      "area": "Model training",
+      "severity": "High",
+      "defect": "Death/hospice discharges were filtered after encoding and the train/test split, so the split and encoded columns didn't match the intended population.",
+      "found_by": "Code review of exploration.ipynb",
+      "fix": "Filter moved before get_dummies and the split; model retrained and docs updated.",
+      "fixed_in": "c519d20"
+    },
+    {
+      "id": "D2",
+      "area": "Deployment",
+      "severity": "Medium",
+      "defect": "requirements.txt was saved as UTF-16, a fragile encoding for pip.",
+      "found_by": "File inspection during Task 1",
+      "fix": "Rewritten as UTF-8 with pinned pandas/numpy/scikit-learn/joblib.",
+      "fixed_in": "c519d20"
+    },
+    {
+      "id": "D3",
+      "area": "Deployment",
+      "severity": "High",
+      "defect": "Render deploy failed: .python-version 3.11.2 isn't available on Render.",
+      "found_by": "Render build log (reported by the user)",
+      "fix": ".python-version set to 3.11 (latest patch).",
+      "fixed_in": "020954e"
+    },
+    {
+      "id": "D4",
+      "area": "API / model",
+      "severity": "High",
+      "defect": "The API sent 14 fields but the model used 110 columns; the other 59 were zero-filled, silently assuming values such as admission type 0, glucose '>200' and A1C '>7'.",
+      "found_by": "Code review; quantified with a three-way comparison on the test set",
+      "fix": "Model retrained on the 14 API fields (AUC 0.6642), so every input is user-entered.",
+      "fixed_in": "9634b19"
+    },
+    {
+      "id": "D5",
+      "area": "API validation",
+      "severity": "High",
+      "defect": "Unknown or misspelled categories (e.g. gender 'Femle') were silently scored as the baseline category.",
+      "found_by": "Local /predict testing during Task 1",
+      "fix": "Validation against training values; 422 invalid_category with the allowed values.",
+      "fixed_in": "81486ee"
+    },
+    {
+      "id": "D6",
+      "area": "API validation (FR-7)",
+      "severity": "High",
+      "defect": "The API returned a score for expired/hospice discharge codes; only the Streamlit form blocked them.",
+      "found_by": "Local /predict testing (code 11 scored 0.132)",
+      "fix": "422 out_of_scope at the API for codes 11, 13, 14, 19, 20, 21.",
+      "fixed_in": "81486ee"
+    },
+    {
+      "id": "D7",
+      "area": "Repository",
+      "severity": "Medium",
+      "defect": "Appending to .gitignore without a trailing newline produced 'clean_diabetic_data.csv.env', which would have un-ignored the 17 MB dataset.",
+      "found_by": "Reviewing the command output before staging",
+      "fix": ".gitignore rewritten; confirmed with git check-ignore. Never committed.",
+      "fixed_in": "81486ee (caught before commit)"
+    },
+    {
+      "id": "D8",
+      "area": "Risk display (FR-2)",
+      "severity": "Medium",
+      "defect": "The only risk output was high_risk (score > 0.5), which just 72 of 19,802 test encounters reach.",
+      "found_by": "Test-set score distribution",
+      "fix": "Percentile-based Low/Moderate/High tiers with real tier readmission rates.",
+      "fixed_in": "c60b2f8"
+    },
+    {
+      "id": "D9",
+      "area": "Tooling (knowledge base)",
+      "severity": "Low",
+      "defect": "The quote checker inserted spaces at inline HTML tags, so a correct PSNet quote was reported missing.",
+      "found_by": "Running check_quotes.py",
+      "fix": "Spaces added only at block-level tags; all 41 quotes verified.",
+      "fixed_in": "6077d5c"
+    },
+    {
+      "id": "D10",
+      "area": "Assistant guardrails",
+      "severity": "Medium",
+      "defect": "The dosing filter matched the bare word 'dose': it would refuse 'Why do wrong doses happen at discharge?' and flag a vetted knowledge-base summary.",
+      "found_by": "Unit test test_no_knowledge_base_summary_trips_the_scope_filter (failed before commit)",
+      "fix": "Patterns narrowed to dose requests; regression tests for allowed questions.",
+      "fixed_in": "8df3762 (caught before commit)"
+    },
+    {
+      "id": "D11",
+      "area": "Assistant retrieval",
+      "severity": "Medium",
+      "defect": "Factor linking by text matched 'Primary diagnosis' to 'primary care'; the top factor got only background items; DKA education and a dataset-scope note were surfaced for unrelated patients.",
+      "found_by": "Inspecting real assistant output for three patients",
+      "fix": "Links require a shared topic tag, one recommendation per factor first; two excerpt tags removed.",
+      "fixed_in": "8df3762"
+    },
+    {
+      "id": "D12",
+      "area": "Streamlit queue",
+      "severity": "Medium",
+      "defect": "After 'Back to queue', the table kept the previous row selection, so clicking that row again deselected it and nothing opened.",
+      "found_by": "Headless-browser run (AppTest can't click table rows)",
+      "fix": "Fresh table key after each visit.",
+      "fixed_in": "d3b99b9 (caught before commit)"
+    },
+    {
+      "id": "D13",
+      "area": "Risk display",
+      "severity": "Low",
+      "defect": "Some Moderate patients read 'below the average readmission rate' because the Moderate tier starts at the median (10.1%), below the 11.2% average.",
+      "found_by": "Reviewing the live Streamlit queue",
+      "fix": "Always 'about N x the average'; Moderate dashboards explain where the tier starts.",
+      "fixed_in": "6914aae"
+    },
+    {
+      "id": "D14",
+      "area": "UI polish",
+      "severity": "Low",
+      "defect": "Risk card said 'Higher than about 100% of test-set patients'; logo text clipped; last queue column cut off.",
+      "found_by": "Reviewing headless-browser screenshots",
+      "fix": "'Among the top 1% of test-set scores'; wider logo; narrower queue columns.",
+      "fixed_in": "4cc8b16 (caught before commit)"
+    },
+    {
+      "id": "D15",
+      "area": "Documentation",
+      "severity": "Low",
+      "defect": "The README described the Render API as 'always-on' (added in be989be). The claim disappeared when the architecture diagram was rewritten in d3b99b9, but the free tier's wake-up delay was never documented; the cold-start test measured a 71.5 s first response.",
+      "found_by": "TC-P3 cold-start test (this testing lab)",
+      "fix": "README limitation added: the first request after the service has been idle can take about a minute.",
+      "fixed_in": "commit adding this report"
+    }
+  ],
+  "corrected_tests": [
+    {
+      "id": "C1",
+      "test": "Task 1 verification script (scratch, not committed)",
+      "problem": "Assumed diag_2_group was created before diag_3_group, so its column order didn't match the saved model and the check failed.",
+      "correction": "Followed the notebook's real cell order; the saved model then matched (AUC 0.6631).",
+      "when": "Task 1"
+    },
+    {
+      "id": "C2",
+      "test": "tests/test_predict.py::test_valid_request_keeps_original_fields_and_score",
+      "problem": "Asserted the exact two-key /predict response; Stage 2 intentionally added fields.",
+      "correction": "Checks the original fields and values are unchanged and the new keys are additions.",
+      "when": "c60b2f8"
+    },
+    {
+      "id": "C3",
+      "test": "tests/test_knowledge.py::test_review_status_is_consistent",
+      "problem": "The earlier test asserted every excerpt stays 'pending' forever, which would fail as soon as a reviewer approves one.",
+      "correction": "Replaced with an invariant: pending has no review record; approved names its reviewer; rejected is recorded.",
+      "when": "253b3ba"
+    },
+    {
+      "id": "C4",
+      "test": "tests/test_knowledge.py::test_rejected_excerpts_are_never_returned",
+      "problem": "Assumed a query would still return results after rejecting every matching excerpt (the code correctly returned none).",
+      "correction": "Compares the same query before and after rejection.",
+      "when": "253b3ba"
+    },
+    {
+      "id": "C5",
+      "test": "tests/test_app.py::test_out_of_scope_question_is_refused",
+      "problem": "Contained a leftover no-op line.",
+      "correction": "Removed.",
+      "when": "d3b99b9"
+    },
+    {
+      "id": "C6",
+      "test": "tests/test_app.py (fixture)",
+      "problem": "The fake requests.post/get didn't accept the headers argument once the app sent X-API-Key.",
+      "correction": "Fixture forwards headers to the in-process API.",
+      "when": "8422e4f"
+    },
+    {
+      "id": "C7",
+      "test": "tests/test_app.py, test_explain.py, test_assistant.py",
+      "problem": "Assertions on wording that changed by design: 'raises/lowers' to 'higher/lower' (d3b99b9), 'below the average' to 'about N x' (6914aae), headline moved into the HTML risk card (4cc8b16).",
+      "correction": "Updated to the new specified wording; these were spec changes, not defects.",
+      "when": "d3b99b9, 6914aae, 4cc8b16"
+    },
+    {
+      "id": "C8",
+      "test": "Headless-browser driver (scratch scripts)",
+      "problem": "Button match failed on icon ligature text, the dropdown selector didn't match Streamlit 1.62, and the tier-filter toggle cleared every tier.",
+      "correction": "Match by contained text, use Streamlit test IDs with real mouse clicks, toggle only the tiers to hide.",
+      "when": "Stages 6-7"
+    },
+    {
+      "id": "C9",
+      "test": "Live two-theme check of the polish pass (scratch script)",
+      "problem": "Could not reconnect to a second headless Chrome instance; the run was interrupted before both themes were checked on the live app.",
+      "correction": "Not completed. Light mode was confirmed on the live app (new sidebar navigation present); both themes were verified locally with screenshots.",
+      "when": "4cc8b16"
+    }
+  ]
+}

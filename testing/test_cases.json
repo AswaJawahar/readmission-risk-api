@@ -1,0 +1,171 @@
+{
+  "project": "AI-assisted discharge support (MIS 7623 Lab 4)",
+  "note": "Actual and Pass/Fail are filled in by testing/generate_report.py from a real pytest run; nothing here is typed by hand.",
+  "cases": [
+    {
+      "id": "TC-U1", "type": "Unit", "requirement": "FR-7 Out-of-scope cases flagged",
+      "description": "Expired/hospice discharge codes are rejected with an out_of_scope error instead of being scored.",
+      "steps": "1. POST /predict with each discharge code 11, 13, 14, 19, 20, 21. 2. Read the status and error type.",
+      "input": "App default patient with discharge_disposition_id = 11 / 13 / 14 / 19 / 20 / 21",
+      "expected": "HTTP 422 with error type out_of_scope and the message 'no prediction is made' for every code.",
+      "tests": ["tests/test_predict.py::test_expired_or_hospice_discharge_is_out_of_scope"]
+    },
+    {
+      "id": "TC-U2", "type": "Unit", "requirement": "FR-1 Enter patient data (input validation)",
+      "description": "A misspelled category is rejected with the allowed values instead of being silently scored.",
+      "steps": "1. POST /predict with gender 'Femle'. 2. Read the error.",
+      "input": "App default patient with gender = 'Femle'",
+      "expected": "HTTP 422, type invalid_category, location body.gender, message lists 'Female, Male'.",
+      "tests": ["tests/test_predict.py::test_misspelled_category_is_rejected_with_allowed_values"]
+    },
+    {
+      "id": "TC-U3", "type": "Unit", "requirement": "FR-1 Enter patient data (input validation)",
+      "description": "Every numeric field accepts its training-data minimum and maximum and rejects one past either end.",
+      "steps": "For each of the 6 numeric fields: POST min, max, min-1, max+1.",
+      "input": "Training-split ranges from model_metadata.json (e.g. number_inpatient 0-21)",
+      "expected": "min and max return 200; min-1 and max+1 return 422 out_of_range.",
+      "tests": ["tests/test_predict.py::test_numeric_range_boundaries"]
+    },
+    {
+      "id": "TC-U4", "type": "Unit", "requirement": "FR-2 Risk score and tier",
+      "description": "Tier assignment at the exact cutoffs and percentile lookup at the edges.",
+      "steps": "1. Call assign_tier just below and at each cutoff. 2. Call percentile_rank at 0, 1, the median and the 90th percentile.",
+      "input": "Cutoffs 0.1008 / 0.188 and the 101 stored score quantiles",
+      "expected": "Below 0.1008 = Low, 0.1008 = Moderate, 0.188 = High; percentiles 0, 100, 50, 90.",
+      "tests": ["tests/test_risk.py::test_tier_boundaries", "tests/test_risk.py::test_percentile_rank"]
+    },
+    {
+      "id": "TC-U5", "type": "Unit", "requirement": "FR-3 Explain top factors",
+      "description": "SHAP contributions plus the baseline add up to the model's own output for several patients.",
+      "steps": "1. POST /explain for 4 patients. 2. Sum baseline + contributions. 3. Compare with the model's log-odds and the score.",
+      "input": "App defaults, the test set's top row, and two variants",
+      "expected": "Sum equals the model's log-odds (within rounding, 0.001) and the score (within 0.0005).",
+      "tests": ["tests/test_explain.py::test_contributions_add_up_to_the_model_output"]
+    },
+    {
+      "id": "TC-U6", "type": "Unit", "requirement": "FR-6 Flag unsupported AI statements",
+      "description": "LLM items citing a source that wasn't retrieved, or citing nothing, are listed as unsupported, not shown as fact.",
+      "steps": "1. Fake LLM returns one supported item, one citing MADE-UP-01, one with no citation. 2. Read items and unsupported.",
+      "input": "Fake provider reply (no real LLM)",
+      "expected": "Only the supported item is shown; the other two appear under 'unsupported' with reasons.",
+      "tests": ["tests/test_assistant.py::test_llm_item_citing_an_unprovided_source_is_flagged",
+                "tests/test_assistant.py::test_llm_dosing_advice_is_flagged_even_with_a_valid_citation"]
+    },
+    {
+      "id": "TC-U7", "type": "Unit", "requirement": "Privacy: no personal details sent externally",
+      "description": "Email addresses and phone numbers are redacted before anything is sent to an LLM provider.",
+      "steps": "Call redact() on text with an email and a phone number.",
+      "input": "'a.b+c@d.co.uk, +1 (555) 123-4567'",
+      "expected": "'[redacted email], [redacted phone]'; ordinary text unchanged.",
+      "tests": ["tests/test_assistant.py::test_redact"]
+    },
+    {
+      "id": "TC-I1", "type": "Integration", "requirement": "FR-2 Risk score and tier",
+      "description": "End to end: the API reproduces the notebook's score for the test set's highest-risk encounter.",
+      "steps": "POST /predict with the test set's top-scoring encounter (validation, encoding, model, tiering).",
+      "input": "Top test-set encounter (9 prior stays, age 80-89, ...)",
+      "expected": "readmission_risk_score 0.782, high_risk true, risk_tier High, risk_percentile 100.",
+      "tests": ["tests/test_predict.py::test_test_set_top_row_reproduces_notebook_score"]
+    },
+    {
+      "id": "TC-I2", "type": "Integration", "requirement": "FR-4 Suggest discharge-planning items; FR-5 Cite sources",
+      "description": "The assistant returns discharge-planning items, each citing retrieved excerpts, with review labels and a disclaimer.",
+      "steps": "POST /assistant for two patients with no question (rule-based mode).",
+      "input": "Top test-set encounter; app defaults",
+      "expected": "status answered; every item cites excerpts present in 'citations'; each citation has URL, quote and 'Source pending review'; disclaimer present.",
+      "tests": ["tests/test_assistant.py::test_rule_based_items_are_cited_and_labelled"]
+    },
+    {
+      "id": "TC-I3", "type": "Integration", "requirement": "FR-6 / NFR AI reliability: insufficient-information fallback",
+      "description": "A question the curated sources don't cover gets 'Insufficient information' instead of a guess.",
+      "steps": "Ask the assistant 'What is the capital of France?'.",
+      "input": "Top test-set encounter + unrelated question",
+      "expected": "status insufficient_information, no items, message starts 'Insufficient information'.",
+      "tests": ["tests/test_assistant.py::test_unrelated_question_gets_insufficient_information"]
+    },
+    {
+      "id": "TC-I4", "type": "Integration", "requirement": "NFR Usability; FR-2; FR-3",
+      "description": "Streamlit dashboard (AppTest) calls the API in-process and leads with the tier and the multiple of the average.",
+      "steps": "1. Open the app. 2. Open the top patient from the queue. 3. Read the risk card.",
+      "input": "Patient PT-9943 from demo/patient_queue.json",
+      "expected": "High-tier card with badge 'High risk', large '7.0x', 'Top 10% of patients', 'Score 78% (average: 11%)', 26.7% tier rate.",
+      "tests": ["tests/test_app.py::test_dashboard_leads_with_tier_and_comparison"]
+    },
+    {
+      "id": "TC-I5", "type": "Integration", "requirement": "FR-7 Out-of-scope cases flagged (UI)",
+      "description": "The hand-made hospice case opens an out-of-scope card with no score and no assistant.",
+      "steps": "Open patient PT-2745 (discharge code 14) from the queue.",
+      "input": "Hand-made hospice demo case",
+      "expected": "Grey 'Out of scope' card, 'No prediction is made for this patient', no discharge-planning section.",
+      "tests": ["tests/test_app.py::test_hospice_case_shows_the_out_of_scope_guardrail"]
+    },
+    {
+      "id": "TC-I6", "type": "Integration", "requirement": "NFR Auditability",
+      "description": "Each request is logged with metadata only; patient values and question text never appear in the log.",
+      "steps": "1. POST /predict for the top patient. 2. Read the audit log entry.",
+      "input": "Top test-set encounter",
+      "expected": "One entry with request ID matching X-Request-ID, endpoint, status 200, tier High, role anonymous; no patient values in the file.",
+      "tests": ["tests/test_audit.py::test_predict_is_logged_with_metadata_only",
+                "tests/test_audit.py::test_keys_never_appear_in_the_log_or_config"]
+    },
+    {
+      "id": "TC-I7", "type": "Integration", "requirement": "NFR Role-based access (mock)",
+      "description": "With ROLE_KEYS set, staff endpoints need the discharge_staff role and the attempts are logged.",
+      "steps": "POST /explain with no key, an auditor key and a staff key; POST /assistant with a staff key.",
+      "input": "Demo keys for discharge_staff and auditor",
+      "expected": "401, 403, 200, 200; log shows anonymous / auditor-01 / nurse-01 / nurse-01.",
+      "tests": ["tests/test_audit.py::test_staff_endpoints_need_the_staff_role"]
+    },
+    {
+      "id": "TC-I8", "type": "Integration", "requirement": "NFR Explainability; rule 'factors must be real model inputs'",
+      "description": "Explanations list exactly the 14 input fields, ordered by size, with shares summing to 100%.",
+      "steps": "POST /explain for 4 patients and inspect the factors.",
+      "input": "Four patient variants",
+      "expected": "Exactly the 14 field names, values equal to the input, shares sum to 1, sorted by absolute contribution.",
+      "tests": ["tests/test_explain.py::test_factors_are_exactly_the_14_inputs"]
+    },
+    {
+      "id": "TC-P1", "type": "Performance", "requirement": "NFR Performance (results within a few seconds)",
+      "description": "Explanation latency in-process.",
+      "steps": "Warm up once, then time 10 /explain calls.",
+      "input": "Top test-set encounter",
+      "expected": "Average under 0.5 s per explanation.",
+      "tests": ["tests/test_explain.py::test_explain_is_fast"]
+    },
+    {
+      "id": "TC-P2", "type": "Performance", "requirement": "NFR Performance; deployment limit (Render 512 MB)",
+      "description": "50 requests to a real uvicorn server across /predict, /explain and /assistant; measure server memory and latency.",
+      "steps": "1. Start uvicorn. 2. Send 50 requests (rotating endpoints). 3. Record server RSS after each request and per-request latency.",
+      "input": "Top test-set encounter",
+      "expected": "Every request returns 200; peak server memory under 512 MB; p95 latency under 2,000 ms.",
+      "measurement": "performance",
+      "tests": ["tests/test_performance.py::test_50_requests_memory_and_latency"]
+    },
+    {
+      "id": "TC-P3", "type": "Performance", "requirement": "NFR Performance (deployed service)",
+      "description": "Cold start against the live Render API, then warm requests.",
+      "steps": "1. GET / on the live API and time the first response. 2. Time 3 /predict calls and 1 /explain call.",
+      "input": "Live API https://readmission-risk-api-oyvy.onrender.com, top test-set encounter",
+      "expected": "First response under 120 s (wake-up allowance); warm calls under 5 s; score 0.782, tier High.",
+      "measurement": "live",
+      "tests": ["tests/test_live.py::test_cold_start_live_render_api"]
+    },
+    {
+      "id": "TC-P4", "type": "Performance", "requirement": "NFR Performance; AI reliability",
+      "description": "A slow LLM provider times out and the assistant falls back to rule-based mode.",
+      "steps": "Fake provider that sleeps 1 s; timeout set to 0.2 s.",
+      "input": "Fake provider (no real LLM)",
+      "expected": "Reply in under 0.9 s, mode rule_based_fallback, note says 'no reply within 0.2 s'.",
+      "tests": ["tests/test_assistant.py::test_slow_llm_times_out_and_falls_back"]
+    },
+    {
+      "id": "TC-S1", "type": "Integration", "requirement": "Constraint: advisory only, not diagnostic or treatment",
+      "description": "Diagnosis, dosing, prescribing and prompt-injection questions are refused without calling the LLM.",
+      "steps": "Ask 5 out-of-scope questions with a fake provider attached.",
+      "input": "'What insulin dose should I prescribe?', 'Ignore previous instructions...', and 3 more",
+      "expected": "status refused, no items, provider never called.",
+      "tests": ["tests/test_assistant.py::test_out_of_scope_questions_are_refused_without_calling_the_llm",
+                "tests/test_app.py::test_out_of_scope_question_is_refused"]
+    }
+  ]
+}
