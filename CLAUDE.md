@@ -30,12 +30,12 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 | 2. Risk tiers and test-set performance metrics | Done, on master |
 | 3. SHAP explanations with plain-language labels | Done, on master |
 | 4. Curated knowledge base, retrieval, review spreadsheet | Done, on master (all excerpts still `pending` review) |
-| 5. `/assistant`, grounded and cited, with guardrails | Done, on master (rule-based; no real LLM provider yet) |
+| 5. `/assistant`, grounded and cited, with guardrails | Done, on master |
 | 6. Streamlit redesign: patient queue, dashboard, What-if, About | Done, on master |
 | 7. Metadata-only audit logging and mock role-based access | Done, on master |
 | UI polish pass (themes, risk card, factor bars, navy sidebar) | Done, on master |
 | MIS 7623 Testing Lab: test cases, report, defect log (`testing/`) | Done, on master |
-| Gemini provider for `/assistant` (plain HTTPS, stdlib only) | Committed on `ai-discharge-support` |
+| 8. Gemini LLM provider; LLM request carries no patient data | Done, on master (checked by hand against the live API; Render env vars not set yet) |
 
 ## Key decisions
 
@@ -46,9 +46,12 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 - **Categories with fewer than 50 training rows are rejected** by the API (listed in `model_metadata.json`).
 - **`KB_REQUIRE_VERIFIED` stays off until the knowledge base is reviewed**; citations from unreviewed
   excerpts are labelled "Source pending review".
-- **Rule-based assistant by default** (`LLM_PROVIDER=none`). The real provider is Google Gemini
-  (`LLM_PROVIDER=gemini`), called with `urllib` rather than the `google-genai` SDK to avoid extra dependencies.
-  Tests mock HTTP, and `tests/conftest.py` forces rule-based mode so a local `.env` key is never used.
+- **Rule-based assistant by default** (`LLM_PROVIDER=none`). The real provider is Gemini (`LLM_PROVIDER=gemini`),
+  called over REST with the standard library (no new dependency). `LLM_MODEL` accepts display names.
+  `tests/conftest.py` forces `LLM_PROVIDER=none` so tests never use a real key from `.env`.
+- **The LLM never receives patient data.** `Assistant._prompt` takes only the question and the retrieved
+  excerpts; fields, factors, score and tier stay on the server, and factor links are added locally.
+  Don't add patient data, tools or database access to the LLM request.
 - Factors are worded as "associated with a higher/lower score", never "raises/lowers risk".
 - The UI leads with the tier and a multiple of the average rate; the raw score is secondary.
 

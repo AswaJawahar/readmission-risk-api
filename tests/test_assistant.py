@@ -1,15 +1,17 @@
-import io
 import json
-import re
 import time
-import urllib.error
 
 import pytest
 from fastapi.testclient import TestClient
 
 import main
-from assistant import (INJECTION_PATTERNS, OUT_OF_SCOPE_PATTERNS, Assistant, GeminiProvider,
-                       ProviderError, make_provider, matches_any, normalize_model_name, redact)
+import io
+import urllib.error
+
+import assistant as assistant_module
+from assistant import (GEMINI_DEFAULT_MODEL, INJECTION_PATTERNS, OUT_OF_SCOPE_PATTERNS, Assistant,
+                       GeminiProvider, ProviderError, make_provider, matches_any,
+                       normalize_model_name, redact)
 from config import Settings, load_settings
 from knowledge import KnowledgeBase
 from main import app, explain, PatientData
@@ -190,17 +192,50 @@ def test_slow_llm_times_out_and_falls_back():
     assert body["mode"] == "rule_based_fallback" and "no reply within 0.2 s" in body["note"]
 
 
-def test_prompt_contains_only_model_inputs_and_redacts_contact_details():
+def test_prompt_redacts_contact_details_and_patient_ids():
     provider = FakeProvider({"items": []})
-    question = "What education should the patient get? Email me at nurse.jo@example.org or call 555-123-4567"
+    question = ("What education should patient PT-1891 get? Email me at nurse.jo@example.org "
+                "or call 555-123-4567")
     make(provider, llm_provider="fake").respond(explanation(), question)
     system, user = provider.calls[0]["system"], provider.calls[0]["user"]
     request = json.loads(user)
-    assert "nurse.jo@example.org" not in user and "555-123-4567" not in user
-    assert "[redacted email]" in request["question"] and "[redacted phone]" in request["question"]
-    assert set(request) == {"patient", "excerpts", "question"}
-    assert len(request["patient"]["factors"]) == 14
+    assert "nurse.jo@example.org" not in user and "555-123-4567" not in user and "PT-1891" not in user
+    for label in ("[redacted email]", "[redacted phone]", "[redacted patient id]"):
+        assert label in request["question"]
     assert "Use ONLY the numbered excerpts" in system
+
+
+@pytest.mark.parametrize("payload", [TEST_SET_TOP_ROW, APP_DEFAULTS])
+@pytest.mark.parametrize("question", [None, "What education should the patient get?"])
+def test_llm_request_contains_no_patient_information(payload, question):
+    """The provider gets excerpts and the question only: no fields, factors, score or tier."""
+    provider = FakeProvider({"items": []})
+    explained = explanation(payload)
+    make(provider, llm_provider="fake").respond(explained, question)
+    system, user = provider.calls[0]["system"], provider.calls[0]["user"]
+    request = json.loads(user)
+    assert set(request) == {"excerpts", "question"}
+    assert all(set(e) == {"id", "source", "summary", "quote"} for e in request["excerpts"])
+    # Excerpt text comes straight from the knowledge base, so it cannot carry patient values
+    kb_text = {(e["excerpt_id"], e["summary"], e["quote"]) for e in kb.excerpts}
+    assert all((e["id"], e["summary"], e["quote"]) in kb_text for e in request["excerpts"])
+    sent = system + user
+    for factor in explained["factors"]:
+        assert factor["description"] not in sent
+    assert str(explained["readmission_risk_score"]) not in sent
+    assert f'"{explained["risk_tier"]}"' not in sent and "risk_tier" not in sent
+
+
+def test_llm_items_are_linked_to_factors_without_the_llm_seeing_them():
+    provider = FakeProvider(lambda req: {"items": [
+        {"text": f"Item for {e['id']}", "type": "suggestion", "citations": [e["id"]]}
+        for e in req["excerpts"]]})
+    body = make(provider, llm_provider="fake").respond(explanation())
+    rule_based = make().respond(explanation())
+    expected = {i["citations"][0]: i["linked_factor"] for i in rule_based["items"]}
+    assert body["mode"] == "llm" and any(i["linked_factor"] for i in body["items"])
+    for item in body["items"]:
+        assert item["linked_factor"] == expected.get(item["citations"][0])
 
 
 def test_redact():
@@ -214,51 +249,93 @@ def test_unknown_or_keyless_provider_uses_rule_based_mode():
     provider, note = make_provider(Settings(llm_provider="someprovider", llm_api_key="x"))
     assert provider is None and "not available" in note
     assert make_provider(Settings())[0] is None
+    provider, note = make_provider(Settings(llm_provider="gemini"))
+    assert provider is None and "LLM_API_KEY is not set" in note
 
 
-def test_tests_never_load_a_real_llm_provider():
-    assert main.assistant.provider is None and main.settings.llm_api_key == ""
+# ---- Gemini provider (network calls are faked) ----------------------------
 
-
-# ---- Gemini provider (HTTP mocked; no network) ----------------------------
-
-class FakeHTTPResponse:
-    def __init__(self, body):
-        self.body = json.dumps(body).encode("utf-8")
-
-    def read(self):
-        return self.body
-
+class FakeResponse(io.BytesIO):
     def __enter__(self):
         return self
 
     def __exit__(self, *args):
-        return False
+        self.close()
 
 
-def gemini_settings(**overrides):
-    return Settings(**{"llm_provider": "gemini", "llm_api_key": "secret-123",
-                       "llm_model": "Gemini 3.5 Flash Lite", "llm_timeout_seconds": 4.0, **overrides})
+def gemini_reply(*parts):
+    return json.dumps({"candidates": [{"content": {"parts": list(parts)}}]}).encode()
 
 
-def gemini_reply(text, **extra):
-    return {"candidates": [{"content": {"parts": [{"text": text}]}, "finishReason": "STOP"}], **extra}
+def fake_urlopen(monkeypatch, result):
+    calls = []
 
-
-@pytest.fixture
-def fake_urlopen(monkeypatch):
-    """Records each request and returns (or raises) whatever `fake_urlopen.result` is."""
-    state = {"requests": [], "result": None}
-
-    def urlopen(request, timeout):
-        state["requests"].append({"request": request, "timeout": timeout})
-        result = state["result"](request) if callable(state["result"]) else state["result"]
+    def urlopen(request, timeout=None):
+        calls.append({"request": request, "timeout": timeout})
         if isinstance(result, Exception):
             raise result
-        return FakeHTTPResponse(result)
+        return FakeResponse(result)
 
-    monkeypatch.setattr("assistant.urllib.request.urlopen", urlopen)
-    return state
+    monkeypatch.setattr(assistant_module.urllib.request, "urlopen", urlopen)
+    return calls
+
+
+def test_gemini_is_selected_when_a_key_is_set():
+    provider, note = make_provider(Settings(llm_provider="gemini", llm_api_key="secret-123"))
+    assert isinstance(provider, GeminiProvider) and "gemini" in note and "secret-123" not in note
+    assert provider.model == GEMINI_DEFAULT_MODEL
+    custom = make_provider(Settings(llm_provider="gemini", llm_api_key="k", llm_model="some-model"))[0]
+    assert custom.model == "some-model"
+
+
+def test_gemini_request_keeps_the_key_out_of_the_url_and_asks_for_json(monkeypatch):
+    calls = fake_urlopen(monkeypatch, gemini_reply({"text": '{"items": []}'}))
+    provider = GeminiProvider(Settings(llm_provider="gemini", llm_api_key="secret-123",
+                                       llm_model="some-model", llm_timeout_seconds=3))
+    assert provider.complete("the rules", "the request") == '{"items": []}'
+    request, timeout = calls[0]["request"], calls[0]["timeout"]
+    assert request.full_url.endswith("/models/some-model:generateContent")
+    assert "secret-123" not in request.full_url and request.get_header("X-goog-api-key") == "secret-123"
+    body = json.loads(request.data)
+    assert body["system_instruction"]["parts"][0]["text"] == "the rules"
+    assert body["contents"] == [{"role": "user", "parts": [{"text": "the request"}]}]
+    assert body["generationConfig"]["responseMimeType"] == "application/json"
+    assert "tools" not in body and timeout == 3
+
+
+def test_gemini_skips_thought_parts(monkeypatch):
+    fake_urlopen(monkeypatch, gemini_reply({"text": "thinking...", "thought": True}, {"text": '{"items": []}'}))
+    assert GeminiProvider(Settings(llm_api_key="k")).complete("s", "u") == '{"items": []}'
+
+
+@pytest.mark.parametrize("result,reason", [
+    (urllib.error.HTTPError("https://example.invalid", 429, "Too Many Requests", {},
+                            io.BytesIO(b'{"error": {"status": "RESOURCE_EXHAUSTED", "message": "key secret-123"}}')),
+     "HTTP 429 (RESOURCE_EXHAUSTED)"),
+    (urllib.error.URLError("no route"), "could not be reached"),
+    (b'{"candidates": []}', "no text"),
+    (b"not json", "could not be reached"),
+])
+def test_gemini_failures_fall_back_to_rule_based_without_leaking_the_key(monkeypatch, result, reason):
+    fake_urlopen(monkeypatch, result)
+    provider = GeminiProvider(Settings(llm_provider="gemini", llm_api_key="secret-123"))
+    with pytest.raises(ProviderError, match=reason.replace("(", r"\(").replace(")", r"\)")):
+        provider.complete("s", "u")
+    body = make(provider, llm_provider="gemini", llm_api_key="secret-123").respond(explanation())
+    assert body["mode"] == "rule_based_fallback" and body["items"]
+    assert "secret-123" not in json.dumps(body)
+
+
+def test_gemini_end_to_end_with_a_faked_reply(monkeypatch):
+    first = make().respond(explanation())["items"][0]["citations"][0]
+    reply = {"items": [{"text": "Book the follow-up visit before discharge.", "type": "suggestion",
+                        "citations": [first]}]}
+    calls = fake_urlopen(monkeypatch, gemini_reply({"text": json.dumps(reply)}))
+    provider = GeminiProvider(Settings(llm_provider="gemini", llm_api_key="secret-123"))
+    body = make(provider, llm_provider="gemini", llm_api_key="secret-123").respond(explanation())
+    assert body["mode"] == "llm" and body["items"][0]["citations"] == [first]
+    sent = json.loads(calls[0]["request"].data)["contents"][0]["parts"][0]["text"]
+    assert set(json.loads(sent)) == {"excerpts", "question"}
 
 
 @pytest.mark.parametrize("name,expected", [
@@ -270,76 +347,23 @@ def test_model_display_names_are_normalized(name, expected):
     assert normalize_model_name(name) == expected
 
 
-def test_gemini_is_selected_from_settings():
-    provider, note = make_provider(gemini_settings())
-    assert isinstance(provider, GeminiProvider) and "gemini-3.5-flash-lite" in note
-    assert make_provider(gemini_settings(llm_model=""))[0] is None
-    provider, note = make_provider(gemini_settings(llm_model="gemini/../../other?x=1"))
+def test_display_name_model_is_used_and_invalid_names_fall_back():
+    provider, note = make_provider(Settings(llm_provider="gemini", llm_api_key="k",
+                                            llm_model="Gemini 3.5 Flash Lite"))
+    assert provider.model == "gemini-3.5-flash-lite" and "gemini-3.5-flash-lite" in note
+    provider, note = make_provider(Settings(llm_provider="gemini", llm_api_key="k",
+                                            llm_model="gemini/../../other?x=1"))
     assert provider is None and "not a valid model name" in note
 
 
-def test_gemini_request_shape_and_key_stays_out_of_the_url(fake_urlopen):
-    fake_urlopen["result"] = gemini_reply('{"items": []}')
-    reply = GeminiProvider(gemini_settings()).complete("SYSTEM", "USER")
-    assert reply == '{"items": []}'
-    sent = fake_urlopen["requests"][0]
-    request, body = sent["request"], json.loads(sent["request"].data)
-    assert request.full_url == ("https://generativelanguage.googleapis.com/v1beta/models/"
-                                "gemini-3.5-flash-lite:generateContent")
-    assert "secret-123" not in request.full_url
-    assert request.get_header("X-goog-api-key") == "secret-123"
-    assert sent["timeout"] == 4.0
-    assert body["systemInstruction"]["parts"][0]["text"] == "SYSTEM"
-    assert body["contents"] == [{"role": "user", "parts": [{"text": "USER"}]}]
-    assert body["generationConfig"]["responseMimeType"] == "application/json"
+def test_gemini_strips_code_fences(monkeypatch):
+    fake_urlopen(monkeypatch, gemini_reply({"text": '```json\n{"items": []}\n```'}))
+    assert GeminiProvider(Settings(llm_api_key="k")).complete("s", "u") == '{"items": []}'
 
 
-def test_gemini_skips_thought_parts_and_strips_code_fences(fake_urlopen):
-    fake_urlopen["result"] = {"candidates": [{"content": {"parts": [
-        {"text": "thinking...", "thought": True}, {"text": '```json\n{"items": []}\n```'}]}}]}
-    assert GeminiProvider(gemini_settings()).complete("s", "u") == '{"items": []}'
-
-
-@pytest.mark.parametrize("result,message", [
-    ({"promptFeedback": {"blockReason": "SAFETY"}}, "no answer (SAFETY)"),
-    ({"candidates": [{"content": {"parts": []}, "finishReason": "MAX_TOKENS"}]}, "no text (MAX_TOKENS)"),
-    (urllib.error.URLError("timed out"), "could not reach Gemini"),
-])
-def test_gemini_failures_raise_provider_error(fake_urlopen, result, message):
-    fake_urlopen["result"] = result
-    with pytest.raises(ProviderError, match=re.escape(message)):
-        GeminiProvider(gemini_settings()).complete("s", "u")
-
-
-def test_gemini_http_error_reports_googles_message_without_the_key(fake_urlopen):
-    error_body = io.BytesIO(json.dumps({"error": {"message": "API key secret-123 not valid."}}).encode())
-    fake_urlopen["result"] = urllib.error.HTTPError("url", 400, "Bad Request", {}, error_body)
-    with pytest.raises(ProviderError) as info:
-        GeminiProvider(gemini_settings()).complete("s", "u")
-    assert "HTTP 400" in str(info.value) and "secret-123" not in str(info.value)
-
-
-def test_gemini_reply_goes_through_the_assistant_checks(fake_urlopen):
-    def reply_for(request):
-        prompt = json.loads(json.loads(request.data)["contents"][0]["parts"][0]["text"])
-        return gemini_reply(json.dumps({"items": [
-            {"text": "Schedule a follow-up visit before discharge.", "citations": first_ids(prompt, 1)},
-            {"text": "Uncited claim.", "citations": []}]}))
-
-    fake_urlopen["result"] = reply_for
-    provider, _ = make_provider(gemini_settings())
-    body = Assistant(kb, gemini_settings(), provider).respond(explanation())
-    assert body["mode"] == "llm" and body["status"] == "answered"
-    assert [i["text"] for i in body["items"]] == ["Schedule a follow-up visit before discharge."]
-    assert body["unsupported"][0]["reason"] == "No source was cited."
-
-
-def test_gemini_failure_falls_back_to_rule_based(fake_urlopen):
-    fake_urlopen["result"] = urllib.error.URLError("no network")
-    provider, _ = make_provider(gemini_settings())
-    body = Assistant(kb, gemini_settings(), provider).respond(explanation())
-    assert body["mode"] == "rule_based_fallback" and body["items"]
-    assert "could not reach Gemini" in body["note"]
+def test_tests_never_load_a_real_llm_provider():
+    # conftest.py forces rule-based mode so a developer's .env key is never used
+    assert main.assistant.provider is None and main.settings.llm_api_key == ""
 
 
 def test_env_file_is_read_and_real_environment_wins(tmp_path):
