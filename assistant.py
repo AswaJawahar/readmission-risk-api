@@ -6,8 +6,10 @@ Pipeline for each request:
 2. Retrieval: excerpts matching the question, or, with no question, excerpts
    linked to the factors most associated with a higher score for this patient.
 3. Generation: rule-based by default (each item is a vetted summary from the
-   knowledge base); an LLM provider can phrase items instead, but only from
-   the retrieved excerpts.
+   knowledge base); an LLM provider (Gemini) can phrase items instead, but only
+   from the retrieved excerpts. The LLM never receives patient data: its request
+   holds the excerpts and the redacted question, nothing else. Excerpts are
+   matched to the patient's factors here, on the server, before and after the call.
 4. Checks: every item must cite retrieved excerpts. Items that cite nothing,
    cite something that wasn't provided, or drift into dosing/treatment advice
    are listed as unsupported instead of being presented as fact. If nothing
@@ -15,6 +17,8 @@ Pipeline for each request:
 """
 import json
 import re
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 
@@ -53,13 +57,19 @@ INJECTION_PATTERNS = [
 ]
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 PHONE = re.compile(r"\+?\d[\d\s().-]{7,}\d")
+PATIENT_ID = re.compile(r"\bPT-?\d+\b", flags=re.IGNORECASE)
 
 MAX_SUGGESTIONS = 5
 MAX_CONTEXT = 2
 FACTORS_TO_LINK = 3
 GENERAL_QUERY = "structured discharge plan and follow-up appointments scheduled before discharge"
 
-SYSTEM_PROMPT = """You help hospital discharge staff plan the discharge of a patient with diabetes.
+NO_QUESTION = "Which discharge-planning items do these excerpts support?"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+GEMINI_DEFAULT_MODEL = "gemini-3.6-flash"  # override with LLM_MODEL
+
+SYSTEM_PROMPT = """You help hospital discharge staff plan discharges for patients with diabetes.
+You are not given any information about an individual patient, and you must not ask for it or guess it.
 Rules:
 - Use ONLY the numbered excerpts provided. Do not add facts, numbers or advice from anywhere else.
 - Every item must cite one or more excerpt IDs from the list in "citations".
@@ -76,7 +86,8 @@ def matches_any(patterns, text):
 
 
 def redact(text):
-    """Removes email addresses and phone numbers before anything leaves the server."""
+    """Removes email addresses, phone numbers and patient IDs before anything leaves the server."""
+    text = PATIENT_ID.sub("[redacted patient id]", text)
     return PHONE.sub("[redacted phone]", EMAIL.sub("[redacted email]", text))
 
 
@@ -88,9 +99,53 @@ class ProviderError(Exception):
     pass
 
 
-# Real providers are registered here once one is chosen; each takes Settings and
-# has complete(system, user) -> str. Until then only rule-based mode is available.
-PROVIDERS = {}
+class GeminiProvider:
+    """Google Gemini over its REST API (standard library only, no extra dependency).
+
+    The key travels in a request header, never in the URL, and error messages
+    carry only the HTTP status and Google's error code.
+    """
+
+    def __init__(self, settings):
+        self.api_key = settings.llm_api_key
+        self.model = settings.llm_model or GEMINI_DEFAULT_MODEL
+        self.timeout = settings.llm_timeout_seconds
+
+    def complete(self, system, user):
+        body = {
+            "system_instruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": user}]}],
+            "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
+        }
+        request = urllib.request.Request(
+            GEMINI_URL.format(model=self.model), data=json.dumps(body).encode("utf-8"), method="POST",
+            headers={"Content-Type": "application/json", "x-goog-api-key": self.api_key})
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            raise ProviderError(f"Gemini returned HTTP {exc.code}{self._error_code(exc)}") from None
+        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+            raise ProviderError(f"Gemini could not be reached ({type(exc).__name__})") from None
+        try:
+            parts = data["candidates"][0]["content"]["parts"]
+            text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        except (KeyError, IndexError, TypeError, AttributeError):
+            raise ProviderError("Gemini returned no text") from None
+        if not text.strip():
+            raise ProviderError("Gemini returned no text")
+        return text
+
+    @staticmethod
+    def _error_code(exc):
+        try:
+            return f" ({json.loads(exc.read().decode('utf-8'))['error']['status']})"
+        except Exception:
+            return ""
+
+
+# Each provider takes Settings and has complete(system, user) -> str.
+PROVIDERS = {"gemini": GeminiProvider}
 
 
 def make_provider(settings):
@@ -155,19 +210,15 @@ class Assistant:
         return {"text": text, "type": kind, "citations": citations,
                 "linked_factor": factor["description"] if factor else None}
 
-    def _prompt(self, explanation, question, candidates):
-        patient = {
-            "risk_tier": explanation["risk_tier"],
-            "readmission_risk_score": explanation["readmission_risk_score"],
-            # Plain-language descriptions of the 14 model inputs only; no identifiers exist
-            "factors": [{"description": f["description"], "effect": f["direction"]}
-                        for f in explanation["factors"]],
-        }
+    def _prompt(self, question, candidates):
+        """The whole request sent to the LLM: excerpts and the redacted question only.
+
+        Deliberately takes no patient data (no fields, factors, score or tier), so
+        none can reach the provider.
+        """
         excerpts = [{"id": c["excerpt_id"], "source": c["source"]["title"],
                      "summary": c["summary"], "quote": c["quote"]} for c in candidates]
-        request = {"patient": patient, "excerpts": excerpts,
-                   "question": redact(question) if question else
-                   "What discharge-planning items should staff address for this patient?"}
+        request = {"excerpts": excerpts, "question": redact(question) if question else NO_QUESTION}
         return SYSTEM_PROMPT, json.dumps(request, ensure_ascii=False)
 
     def _call_provider(self, system, user):
@@ -176,6 +227,8 @@ class Assistant:
             return future.result(timeout=self.settings.llm_timeout_seconds)
         except FutureTimeout:
             raise ProviderError(f"no reply within {self.settings.llm_timeout_seconds:g} s")
+        except ProviderError:
+            raise
         except Exception as exc:  # any provider failure falls back to rule-based mode
             raise ProviderError(f"{type(exc).__name__}: {exc}")
 
@@ -189,7 +242,7 @@ class Assistant:
             raise ProviderError("reply did not match the expected format")
         return data
 
-    def _check_llm_items(self, data, candidates):
+    def _check_llm_items(self, data, candidates, linked):
         allowed = {c["excerpt_id"] for c in candidates}
         items, unsupported = [], []
         for raw in data.get("items", []):
@@ -209,7 +262,9 @@ class Assistant:
                                     "(dosing, prescribing, diagnosis or treatment change)."})
             else:
                 kind = raw.get("type") if raw.get("type") in {"suggestion", "context"} else "suggestion"
-                items.append(self._item(text, kind, citations))
+                # The factor link is made here from the cited excerpts; the LLM never saw the factors
+                factor = next((linked[c] for c in citations if linked.get(c)), None)
+                items.append(self._item(text, kind, citations, factor))
         return items[:MAX_SUGGESTIONS + MAX_CONTEXT], unsupported
 
     # ---- response --------------------------------------------------------
@@ -234,8 +289,8 @@ class Assistant:
         items = None
         if self.provider is not None:
             try:
-                data = self._parse(self._call_provider(*self._prompt(explanation, question, candidates)))
-                items, unsupported = self._check_llm_items(data, candidates)
+                data = self._parse(self._call_provider(*self._prompt(question, candidates)))
+                items, unsupported = self._check_llm_items(data, candidates, linked)
                 mode = "llm"
             except ProviderError as exc:
                 mode, note = "rule_based_fallback", f"LLM unavailable ({exc}); used rule-based mode."
