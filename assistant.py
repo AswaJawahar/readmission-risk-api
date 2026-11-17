@@ -15,6 +15,8 @@ Pipeline for each request:
 """
 import json
 import re
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 
@@ -88,9 +90,68 @@ class ProviderError(Exception):
     pass
 
 
-# Real providers are registered here once one is chosen; each takes Settings and
-# has complete(system, user) -> str. Until then only rule-based mode is available.
-PROVIDERS = {}
+def normalize_model_name(name):
+    """'Gemini 3.5 Flash Lite' or 'models/gemini-3.5-flash-lite' -> 'gemini-3.5-flash-lite'."""
+    name = name.strip().lower()
+    name = name.removeprefix("models/")
+    return re.sub(r"[\s_]+", "-", name)
+
+
+class GeminiProvider:
+    """Google Gemini over plain HTTPS (generateContent), using only the standard library.
+
+    The key goes in the x-goog-api-key header, never in the URL, so it can't end up in
+    proxy or server logs. Only the prompt built by Assistant._prompt is sent: the
+    retrieved excerpts, plain-language model inputs and the redacted question.
+    """
+    URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+    def __init__(self, settings):
+        self.model = normalize_model_name(settings.llm_model)
+        if not re.fullmatch(r"[a-z0-9][a-z0-9.-]*", self.model):
+            raise ValueError(f"LLM_MODEL '{settings.llm_model}' is not a valid model name")
+        self._key = settings.llm_api_key
+        self.timeout = settings.llm_timeout_seconds
+
+    def _post(self, url, body):
+        request = urllib.request.Request(
+            url, data=json.dumps(body).encode("utf-8"), method="POST",
+            headers={"Content-Type": "application/json", "x-goog-api-key": self._key})
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = json.loads(exc.read().decode("utf-8"))["error"]["message"]
+            except Exception:
+                detail = exc.reason
+            detail = str(detail).replace(self._key, "[key]")  # never echo the key into notes or logs
+            raise ProviderError(f"Gemini returned HTTP {exc.code}: {detail}") from None
+        except urllib.error.URLError as exc:
+            raise ProviderError(f"could not reach Gemini: {exc.reason}") from None
+
+    def complete(self, system, user):
+        body = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": user}]}],
+            "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2},
+        }
+        data = self._post(self.URL.format(model=self.model), body)
+        candidates = data.get("candidates") or []
+        if not candidates:
+            reason = (data.get("promptFeedback") or {}).get("blockReason", "no candidates returned")
+            raise ProviderError(f"Gemini returned no answer ({reason})")
+        parts = (candidates[0].get("content") or {}).get("parts") or []
+        text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        if not text.strip():
+            reason = candidates[0].get("finishReason", "empty reply")
+            raise ProviderError(f"Gemini returned no text ({reason})")
+        # Strip a ```json fence if the model added one despite the JSON response type
+        return re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", text)
+
+
+# Each provider takes Settings and has complete(system, user) -> str.
+PROVIDERS = {"gemini": GeminiProvider}
 
 
 def make_provider(settings):
@@ -102,7 +163,13 @@ def make_provider(settings):
         return None, f"LLM provider '{name}' is not available; using rule-based mode."
     if not settings.llm_api_key:
         return None, f"LLM_API_KEY is not set for provider '{name}'; using rule-based mode."
-    return PROVIDERS[name](settings), f"LLM provider '{name}'."
+    if not settings.llm_model.strip():
+        return None, f"LLM_MODEL is not set for provider '{name}'; using rule-based mode."
+    try:
+        provider = PROVIDERS[name](settings)
+    except ValueError as exc:
+        return None, f"{exc}; using rule-based mode."
+    return provider, f"LLM provider '{name}' (model {provider.model})."
 
 
 class Assistant:

@@ -1,6 +1,13 @@
+import os
+
 import pytest
 
-import main
+# Real environment variables override .env, so this keeps a developer's .env (with a real
+# LLM key) from being picked up by main at import: tests never call a real LLM provider.
+os.environ["LLM_PROVIDER"] = "none"
+os.environ["LLM_API_KEY"] = ""
+
+import main  # noqa: E402
 from audit import AuditLog
 
 

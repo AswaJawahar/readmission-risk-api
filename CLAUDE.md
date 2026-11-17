@@ -34,7 +34,8 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 | 6. Streamlit redesign: patient queue, dashboard, What-if, About | Done, on master |
 | 7. Metadata-only audit logging and mock role-based access | Done, on master |
 | UI polish pass (themes, risk card, factor bars, navy sidebar) | Done, on master |
-| MIS 7623 Testing Lab: test cases, report, defect log (`testing/`) | Committed on `ai-discharge-support` |
+| MIS 7623 Testing Lab: test cases, report, defect log (`testing/`) | Done, on master |
+| Gemini provider for `/assistant` (plain HTTPS, stdlib only) | Committed on `ai-discharge-support` |
 
 ## Key decisions
 
@@ -45,8 +46,9 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 - **Categories with fewer than 50 training rows are rejected** by the API (listed in `model_metadata.json`).
 - **`KB_REQUIRE_VERIFIED` stays off until the knowledge base is reviewed**; citations from unreviewed
   excerpts are labelled "Source pending review".
-- **Rule-based assistant by default** (`LLM_PROVIDER=none`). The LLM path is built and tested with a fake
-  provider only; the user will choose a real provider later.
+- **Rule-based assistant by default** (`LLM_PROVIDER=none`). The real provider is Google Gemini
+  (`LLM_PROVIDER=gemini`), called with `urllib` rather than the `google-genai` SDK to avoid extra dependencies.
+  Tests mock HTTP, and `tests/conftest.py` forces rule-based mode so a local `.env` key is never used.
 - Factors are worded as "associated with a higher/lower score", never "raises/lowers risk".
 - The UI leads with the tier and a multiple of the average rate; the raw score is secondary.
 

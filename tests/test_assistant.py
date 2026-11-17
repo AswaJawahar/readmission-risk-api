@@ -1,12 +1,15 @@
+import io
 import json
+import re
 import time
+import urllib.error
 
 import pytest
 from fastapi.testclient import TestClient
 
 import main
-from assistant import (INJECTION_PATTERNS, OUT_OF_SCOPE_PATTERNS, Assistant, make_provider,
-                       matches_any, redact)
+from assistant import (INJECTION_PATTERNS, OUT_OF_SCOPE_PATTERNS, Assistant, GeminiProvider,
+                       ProviderError, make_provider, matches_any, normalize_model_name, redact)
 from config import Settings, load_settings
 from knowledge import KnowledgeBase
 from main import app, explain, PatientData
@@ -211,6 +214,132 @@ def test_unknown_or_keyless_provider_uses_rule_based_mode():
     provider, note = make_provider(Settings(llm_provider="someprovider", llm_api_key="x"))
     assert provider is None and "not available" in note
     assert make_provider(Settings())[0] is None
+
+
+def test_tests_never_load_a_real_llm_provider():
+    assert main.assistant.provider is None and main.settings.llm_api_key == ""
+
+
+# ---- Gemini provider (HTTP mocked; no network) ----------------------------
+
+class FakeHTTPResponse:
+    def __init__(self, body):
+        self.body = json.dumps(body).encode("utf-8")
+
+    def read(self):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+def gemini_settings(**overrides):
+    return Settings(**{"llm_provider": "gemini", "llm_api_key": "secret-123",
+                       "llm_model": "Gemini 3.5 Flash Lite", "llm_timeout_seconds": 4.0, **overrides})
+
+
+def gemini_reply(text, **extra):
+    return {"candidates": [{"content": {"parts": [{"text": text}]}, "finishReason": "STOP"}], **extra}
+
+
+@pytest.fixture
+def fake_urlopen(monkeypatch):
+    """Records each request and returns (or raises) whatever `fake_urlopen.result` is."""
+    state = {"requests": [], "result": None}
+
+    def urlopen(request, timeout):
+        state["requests"].append({"request": request, "timeout": timeout})
+        result = state["result"](request) if callable(state["result"]) else state["result"]
+        if isinstance(result, Exception):
+            raise result
+        return FakeHTTPResponse(result)
+
+    monkeypatch.setattr("assistant.urllib.request.urlopen", urlopen)
+    return state
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("Gemini 3.5 Flash Lite", "gemini-3.5-flash-lite"),
+    ("models/gemini-3.5-flash-lite", "gemini-3.5-flash-lite"),
+    ("  gemini_3.5_flash  ", "gemini-3.5-flash"),
+])
+def test_model_display_names_are_normalized(name, expected):
+    assert normalize_model_name(name) == expected
+
+
+def test_gemini_is_selected_from_settings():
+    provider, note = make_provider(gemini_settings())
+    assert isinstance(provider, GeminiProvider) and "gemini-3.5-flash-lite" in note
+    assert make_provider(gemini_settings(llm_model=""))[0] is None
+    provider, note = make_provider(gemini_settings(llm_model="gemini/../../other?x=1"))
+    assert provider is None and "not a valid model name" in note
+
+
+def test_gemini_request_shape_and_key_stays_out_of_the_url(fake_urlopen):
+    fake_urlopen["result"] = gemini_reply('{"items": []}')
+    reply = GeminiProvider(gemini_settings()).complete("SYSTEM", "USER")
+    assert reply == '{"items": []}'
+    sent = fake_urlopen["requests"][0]
+    request, body = sent["request"], json.loads(sent["request"].data)
+    assert request.full_url == ("https://generativelanguage.googleapis.com/v1beta/models/"
+                                "gemini-3.5-flash-lite:generateContent")
+    assert "secret-123" not in request.full_url
+    assert request.get_header("X-goog-api-key") == "secret-123"
+    assert sent["timeout"] == 4.0
+    assert body["systemInstruction"]["parts"][0]["text"] == "SYSTEM"
+    assert body["contents"] == [{"role": "user", "parts": [{"text": "USER"}]}]
+    assert body["generationConfig"]["responseMimeType"] == "application/json"
+
+
+def test_gemini_skips_thought_parts_and_strips_code_fences(fake_urlopen):
+    fake_urlopen["result"] = {"candidates": [{"content": {"parts": [
+        {"text": "thinking...", "thought": True}, {"text": '```json\n{"items": []}\n```'}]}}]}
+    assert GeminiProvider(gemini_settings()).complete("s", "u") == '{"items": []}'
+
+
+@pytest.mark.parametrize("result,message", [
+    ({"promptFeedback": {"blockReason": "SAFETY"}}, "no answer (SAFETY)"),
+    ({"candidates": [{"content": {"parts": []}, "finishReason": "MAX_TOKENS"}]}, "no text (MAX_TOKENS)"),
+    (urllib.error.URLError("timed out"), "could not reach Gemini"),
+])
+def test_gemini_failures_raise_provider_error(fake_urlopen, result, message):
+    fake_urlopen["result"] = result
+    with pytest.raises(ProviderError, match=re.escape(message)):
+        GeminiProvider(gemini_settings()).complete("s", "u")
+
+
+def test_gemini_http_error_reports_googles_message_without_the_key(fake_urlopen):
+    error_body = io.BytesIO(json.dumps({"error": {"message": "API key secret-123 not valid."}}).encode())
+    fake_urlopen["result"] = urllib.error.HTTPError("url", 400, "Bad Request", {}, error_body)
+    with pytest.raises(ProviderError) as info:
+        GeminiProvider(gemini_settings()).complete("s", "u")
+    assert "HTTP 400" in str(info.value) and "secret-123" not in str(info.value)
+
+
+def test_gemini_reply_goes_through_the_assistant_checks(fake_urlopen):
+    def reply_for(request):
+        prompt = json.loads(json.loads(request.data)["contents"][0]["parts"][0]["text"])
+        return gemini_reply(json.dumps({"items": [
+            {"text": "Schedule a follow-up visit before discharge.", "citations": first_ids(prompt, 1)},
+            {"text": "Uncited claim.", "citations": []}]}))
+
+    fake_urlopen["result"] = reply_for
+    provider, _ = make_provider(gemini_settings())
+    body = Assistant(kb, gemini_settings(), provider).respond(explanation())
+    assert body["mode"] == "llm" and body["status"] == "answered"
+    assert [i["text"] for i in body["items"]] == ["Schedule a follow-up visit before discharge."]
+    assert body["unsupported"][0]["reason"] == "No source was cited."
+
+
+def test_gemini_failure_falls_back_to_rule_based(fake_urlopen):
+    fake_urlopen["result"] = urllib.error.URLError("no network")
+    provider, _ = make_provider(gemini_settings())
+    body = Assistant(kb, gemini_settings(), provider).respond(explanation())
+    assert body["mode"] == "rule_based_fallback" and body["items"]
+    assert "could not reach Gemini" in body["note"]
 
 
 def test_env_file_is_read_and_real_environment_wins(tmp_path):
