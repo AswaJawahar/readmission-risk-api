@@ -84,6 +84,32 @@ def test_tier_filter(app):
     assert len(queue) == 8 and set(queue["Risk tier"]) == {"High"}
 
 
+def test_search_by_patient_id(app):
+    app.text_input(key="search_filter").set_value(TOP_PATIENT.lower()).run()
+    queue = app.dataframe[0].value
+    assert queue["Patient"].tolist() == [TOP_PATIENT]
+    assert "Showing 1 of 25" in all_text(app)
+
+
+def test_dropdown_filters_combine_and_clear(app):
+    app.multiselect(key="destination_filter").set_value(["Home"]).run()
+    home = app.dataframe[0].value
+    assert len(home) > 0 and set(home["Discharge destination"]) == {"Home"}
+    app.pills[0].set_value(["High"]).run()
+    both = app.dataframe[0].value
+    assert set(both["Risk tier"]) == {"High"} and set(both["Discharge destination"]) == {"Home"}
+    assert 0 < len(both) < len(home)
+    next(b for b in app.button if b.label == "Clear filters").click().run()
+    assert len(app.dataframe[0].value) == 25
+    assert app.multiselect(key="destination_filter").value == []
+
+
+def test_filters_with_no_match_show_a_message(app):
+    app.text_input(key="search_filter").set_value("no-such-patient").run()
+    assert not app.exception and len(app.dataframe) == 0
+    assert "No patients match these filters." in all_text(app)
+
+
 # ---- dashboard ---------------------------------------------------------------
 
 def test_dashboard_leads_with_tier_and_comparison(app):

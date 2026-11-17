@@ -68,13 +68,45 @@ for patient, (status, body) in zip(patients, results):
 queue = pd.DataFrame(rows).sort_values("_score", ascending=False)
 counts = queue["Risk tier"].value_counts()
 tiers = [t for t in ("High", "Moderate", "Low", "Out of scope", "Error") if t in counts]
-shown_tiers = st.pills("Show tiers", tiers, selection_mode="multi", default=tiers,
-                       format_func=lambda t: f"{t} ({counts[t]})", key="tier_filter")
-queue = queue[queue["Risk tier"].isin(shown_tiers)].drop(columns="_score").reset_index(drop=True)
+# Dropdown filters: an empty selection means "all"
+DROPDOWN_FILTERS = {"age_filter": "Age group", "diagnosis_filter": "Primary diagnosis",
+                    "destination_filter": "Discharge destination"}
+
+
+def clear_filters():
+    st.session_state.tier_filter = tiers
+    st.session_state.search_filter = ""
+    for key in DROPDOWN_FILTERS:
+        st.session_state[key] = []
+
+
+with st.container(border=True):
+    search_col, tier_col = st.columns([1, 2], vertical_alignment="bottom")
+    search = search_col.text_input("Search patient ID", placeholder="e.g. PT-9943", key="search_filter",
+                                   icon=":material/search:")
+    shown_tiers = tier_col.pills("Risk tier", tiers, selection_mode="multi", default=tiers,
+                                 format_func=lambda t: f"{t} ({counts[t]})", key="tier_filter")
+    chosen = {}
+    for col, (key, column) in zip(st.columns(len(DROPDOWN_FILTERS)), DROPDOWN_FILTERS.items()):
+        chosen[column] = col.multiselect(column, sorted(queue[column].unique()), key=key, placeholder="All")
+
+mask = queue["Risk tier"].isin(shown_tiers)
+if search.strip():
+    mask &= queue["Patient"].str.contains(search.strip(), case=False, regex=False)
+for column, values in chosen.items():
+    if values:
+        mask &= queue[column].isin(values)
+queue = queue[mask].drop(columns="_score").reset_index(drop=True)
 st.session_state.queue_ids = queue["Patient"].tolist()
 
-st.caption(f"{len(patients)} demo patients, highest risk first. Select a row to open the dashboard. "
-           f"Average = the test-set 30-day readmission rate ({base_rate:.1%}).")
+shown_col, clear_col = st.columns([4, 1], vertical_alignment="center")
+shown_col.caption(f"Showing {len(queue)} of {len(patients)} demo patients, highest risk first. Select a row "
+                  f"to open the dashboard. Average = the test-set 30-day readmission rate ({base_rate:.1%}).")
+clear_col.button("Clear filters", icon=":material/filter_alt_off:", on_click=clear_filters,
+                 disabled=len(queue) == len(patients), width="stretch")
+if queue.empty:
+    st.info("No patients match these filters.", icon=":material/filter_alt_off:")
+    st.stop()
 # Tier cells are tinted with the tier colour (text label kept); colours come from assets/style.css.
 # st.dataframe can't colour bars per row, so the score bar uses one neutral colour.
 styled = queue.style.map(tier_cell_style, subset=["Risk tier"])
