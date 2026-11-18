@@ -35,7 +35,7 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 | 7. Metadata-only audit logging and mock role-based access | Done, on master |
 | UI polish pass (themes, risk card, factor bars, navy sidebar) | Done, on master |
 | MIS 7623 Testing Lab: test cases, report, defect log (`testing/`) | Done, on master |
-| Queue filter bar (patient ID search, tier, age, diagnosis, destination) | Committed on `ai-discharge-support` |
+| Queue filter bar (patient ID search, tier, age, diagnosis, destination) | Done, on master |
 | 8. Gemini LLM provider; LLM request carries no patient data | Done, on master (checked by hand against the live API; Render env vars not set yet) |
 
 ## Key decisions
