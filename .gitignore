@@ -7,3 +7,4 @@ clean_diabetic_data.csv
 .pytest_cache/
 ~$*
 logs/
+.vscode/
