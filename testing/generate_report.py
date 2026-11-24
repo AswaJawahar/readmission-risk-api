@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TESTING = ROOT / "testing"
 RESULTS = TESTING / "results"
 JUNIT = RESULTS / "junit.xml"
+TYPE_ORDER = ["Unit", "Integration", "Performance"]
 COLUMNS = ["ID", "Requirement", "Type", "Description", "Steps", "Input", "Expected", "Actual",
            "Pass/Fail", "Linked pytest test"]
 
@@ -243,6 +244,8 @@ def main():
     pytest_summary = run_pytest(live)
     results = load_results()
     cases = json.loads((TESTING / "test_cases.json").read_text(encoding="utf-8"))["cases"]
+    # Unit, then integration, then performance; within each, in ID order (TC-I2 before TC-I10)
+    cases.sort(key=lambda c: (TYPE_ORDER.index(c["type"]), c["id"].split("-")[1][0], int(c["id"].split("-")[1][1:])))
     log = json.loads((TESTING / "defects.json").read_text(encoding="utf-8"))
 
     rows = []
