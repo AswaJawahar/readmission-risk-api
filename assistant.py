@@ -17,6 +17,7 @@ Pipeline for each request:
 """
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -67,6 +68,11 @@ GENERAL_QUERY = "structured discharge plan and follow-up appointments scheduled 
 NO_QUESTION = "Which discharge-planning items do these excerpts support?"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 GEMINI_DEFAULT_MODEL = "gemini-3.6-flash"  # override with LLM_MODEL
+# HTTP 503 means Google's servers are briefly overloaded, so it gets one retry after a short
+# pause, if enough of the time limit is left. Quota errors (429) and others are not retried.
+RETRY_STATUS = 503
+RETRY_DELAY_SECONDS = 1.0
+MIN_RETRY_SECONDS = 1.0  # time that must remain after the pause for a retry to be worth it
 
 SYSTEM_PROMPT = """You help hospital discharge staff plan discharges for patients with diabetes.
 You are not given any information about an individual patient, and you must not ask for it or guess it.
@@ -128,13 +134,23 @@ class GeminiProvider:
         request = urllib.request.Request(
             GEMINI_URL.format(model=self.model), data=json.dumps(body).encode("utf-8"), method="POST",
             headers={"Content-Type": "application/json", "x-goog-api-key": self.api_key})
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            raise ProviderError(f"Gemini returned HTTP {exc.code}{self._error_code(exc)}") from None
-        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
-            raise ProviderError(f"Gemini could not be reached ({type(exc).__name__})") from None
+        deadline = time.monotonic() + self.timeout
+        timeout, retried = self.timeout, False
+        while True:
+            try:
+                with urllib.request.urlopen(request, timeout=timeout) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError as exc:
+                remaining = deadline - time.monotonic() - RETRY_DELAY_SECONDS
+                if exc.code == RETRY_STATUS and not retried and remaining >= MIN_RETRY_SECONDS:
+                    time.sleep(RETRY_DELAY_SECONDS)
+                    timeout, retried = remaining, True
+                    continue
+                after = " after one retry" if retried else ""
+                raise ProviderError(f"Gemini returned HTTP {exc.code}{self._error_code(exc)}{after}") from None
+            except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+                raise ProviderError(f"Gemini could not be reached ({type(exc).__name__})") from None
         try:
             parts = data["candidates"][0]["content"]["parts"]
             text = "".join(p.get("text", "") for p in parts if not p.get("thought"))

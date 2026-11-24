@@ -36,7 +36,8 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 | UI polish pass (themes, risk card, factor bars, navy sidebar) | Done, on master |
 | MIS 7623 Testing Lab: test cases, report, defect log (`testing/`) | Done, on master |
 | Queue filter bar (patient ID search, tier, age, diagnosis, destination) | Done, on master |
-| 8. Gemini LLM provider; LLM request carries no patient data | Done, on master (checked by hand against the live API; Render env vars not set yet) |
+| 8. Gemini LLM provider; LLM request carries no patient data | Done, on master (Render: `gemini-3.5-flash-lite`, `LLM_TIMEOUT_SECONDS=20`, `ROLE_KEYS` set) |
+| 9. Retry Gemini once on HTTP 503 (not on 429 or timeouts) | Done, on `ai-discharge-support` (not merged) |
 
 ## Key decisions
 
@@ -53,6 +54,8 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 - **The LLM never receives patient data.** `Assistant._prompt` takes only the question and the retrieved
   excerpts; fields, factors, score and tier stay on the server, and factor links are added locally.
   Don't add patient data, tools or database access to the LLM request.
+- **Use `gemini-3.5-flash-lite` on the free tier** (500 requests/day). `gemini-3.6-flash`, the code default,
+  allows only 20/day. A 503 gets one retry if time is left; a 429 (quota) is never retried.
 - Factors are worded as "associated with a higher/lower score", never "raises/lowers risk".
 - The UI leads with the tier and a multiple of the average rate; the raw score is secondary.
 

@@ -268,13 +268,16 @@ def gemini_reply(*parts):
 
 
 def fake_urlopen(monkeypatch, result):
+    """Fakes urlopen; a list gives one result per call, in order."""
     calls = []
+    results = list(result) if isinstance(result, list) else None
 
     def urlopen(request, timeout=None):
         calls.append({"request": request, "timeout": timeout})
-        if isinstance(result, Exception):
-            raise result
-        return FakeResponse(result)
+        current = results.pop(0) if results is not None else result
+        if isinstance(current, Exception):
+            raise current
+        return FakeResponse(current)
 
     monkeypatch.setattr(assistant_module.urllib.request, "urlopen", urlopen)
     return calls
@@ -324,6 +327,65 @@ def test_gemini_failures_fall_back_to_rule_based_without_leaking_the_key(monkeyp
     body = make(provider, llm_provider="gemini", llm_api_key="secret-123").respond(explanation())
     assert body["mode"] == "rule_based_fallback" and body["items"]
     assert "secret-123" not in json.dumps(body)
+
+
+def http_error(code, status):
+    return urllib.error.HTTPError("https://example.invalid", code, status, {},
+                                  io.BytesIO(json.dumps({"error": {"status": status}}).encode()))
+
+
+@pytest.fixture
+def no_pause(monkeypatch):
+    """Records retry pauses instead of sleeping."""
+    pauses = []
+    monkeypatch.setattr(assistant_module.time, "sleep", pauses.append)
+    return pauses
+
+
+def test_gemini_retries_once_after_a_503(monkeypatch, no_pause):
+    calls = fake_urlopen(monkeypatch, [http_error(503, "UNAVAILABLE"), gemini_reply({"text": '{"items": []}'})])
+    provider = GeminiProvider(Settings(llm_api_key="k", llm_timeout_seconds=20))
+    assert provider.complete("s", "u") == '{"items": []}'
+    assert len(calls) == 2 and no_pause == [assistant_module.RETRY_DELAY_SECONDS]
+    # The retry only gets the time left, so both attempts stay within the time limit
+    assert calls[0]["timeout"] == 20 and calls[1]["timeout"] <= 20 - assistant_module.RETRY_DELAY_SECONDS
+
+
+def test_gemini_gives_up_after_a_second_503(monkeypatch, no_pause):
+    calls = fake_urlopen(monkeypatch, [http_error(503, "UNAVAILABLE"), http_error(503, "UNAVAILABLE"),
+                                       gemini_reply({"text": '{"items": []}'})])
+    provider = GeminiProvider(Settings(llm_api_key="k", llm_timeout_seconds=20))
+    with pytest.raises(ProviderError, match=r"HTTP 503 \(UNAVAILABLE\) after one retry"):
+        provider.complete("s", "u")
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("error", [
+    http_error(429, "RESOURCE_EXHAUSTED"),  # quota: a retry would only use more of it
+    http_error(500, "INTERNAL"),
+    http_error(400, "INVALID_ARGUMENT"),
+])
+def test_gemini_does_not_retry_other_errors(monkeypatch, no_pause, error):
+    calls = fake_urlopen(monkeypatch, [error, gemini_reply({"text": '{"items": []}'})])
+    with pytest.raises(ProviderError, match=f"HTTP {error.code}"):
+        GeminiProvider(Settings(llm_api_key="k", llm_timeout_seconds=20)).complete("s", "u")
+    assert len(calls) == 1 and no_pause == []
+
+
+def test_gemini_does_not_retry_without_enough_time_left(monkeypatch, no_pause):
+    calls = fake_urlopen(monkeypatch, [http_error(503, "UNAVAILABLE"), gemini_reply({"text": '{"items": []}'})])
+    with pytest.raises(ProviderError, match=r"HTTP 503 \(UNAVAILABLE\)$"):
+        GeminiProvider(Settings(llm_api_key="k", llm_timeout_seconds=1.5)).complete("s", "u")
+    assert len(calls) == 1 and no_pause == []
+
+
+def test_assistant_uses_the_llm_after_a_retried_503(monkeypatch, no_pause):
+    first = make().respond(explanation())["items"][0]["citations"][0]
+    reply = {"items": [{"text": "Book follow-up before discharge.", "type": "suggestion", "citations": [first]}]}
+    fake_urlopen(monkeypatch, [http_error(503, "UNAVAILABLE"), gemini_reply({"text": json.dumps(reply)})])
+    provider = GeminiProvider(Settings(llm_provider="gemini", llm_api_key="k", llm_timeout_seconds=20))
+    body = make(provider, llm_provider="gemini", llm_api_key="k", llm_timeout_seconds=20).respond(explanation())
+    assert body["mode"] == "llm" and body["items"][0]["text"] == "Book follow-up before discharge."
 
 
 def test_gemini_end_to_end_with_a_faked_reply(monkeypatch):

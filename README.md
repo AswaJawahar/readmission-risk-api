@@ -162,7 +162,7 @@ Retrieval (`knowledge.py`) uses TF-IDF text similarity plus a boost for excerpts
 
 Each response includes the patient's risk, the items (`suggestion` or `context`, with the factor they relate to), the cited excerpts with their source, URL, quote and review status, and an advisory-only disclaimer. Citations from excerpts no reviewer has approved yet are labelled **"Source pending review"**.
 
-Settings come from environment variables or a gitignored `.env` file (see `.env.example`): `LLM_PROVIDER` (default `none`), `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT_SECONDS` (default 8) and `KB_REQUIRE_VERIFIED` (default `false`; set to `true` once the knowledge base is reviewed, so only approved excerpts are used). The only real provider is `gemini` (Google's REST API, called with the standard library, key sent in a header); `LLM_MODEL` defaults to `gemini-3.6-flash` and takes a model id or display name ("Gemini 3.5 Flash Lite" becomes `gemini-3.5-flash-lite`); an invalid name keeps rule-based mode. The tests fake the network, and `tests/conftest.py` forces rule-based mode so a local `.env` key is never used; the Gemini path was checked once by hand against the live API. Without a key the app stays in rule-based mode. `GET /assistant/config` shows the active mode and whether a key is set, never the key itself.
+Settings come from environment variables or a gitignored `.env` file (see `.env.example`): `LLM_PROVIDER` (default `none`), `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT_SECONDS` (default 8) and `KB_REQUIRE_VERIFIED` (default `false`; set to `true` once the knowledge base is reviewed, so only approved excerpts are used). The only real provider is `gemini` (Google's REST API, called with the standard library, key sent in a header); `LLM_MODEL` defaults to `gemini-3.6-flash` and takes a model id or display name ("Gemini 3.5 Flash Lite" becomes `gemini-3.5-flash-lite`); an invalid name keeps rule-based mode. If Gemini answers HTTP 503 (its servers are briefly overloaded), the request is retried once after a one-second pause, as long as at least a second of the `LLM_TIMEOUT_SECONDS` limit is left; quota errors (429) and other errors are not retried, and any failure falls back to rule-based mode. The tests fake the network, and `tests/conftest.py` forces rule-based mode so a local `.env` key is never used; the Gemini path was checked once by hand against the live API. Without a key the app stays in rule-based mode. `GET /assistant/config` shows the active mode and whether a key is set, never the key itself.
 
 ## Audit logging and access (mock)
 
@@ -170,7 +170,7 @@ Settings come from environment variables or a gitignored `.env` file (see `.env.
 
 **Mock roles.** Set `ROLE_KEYS` (see `.env.example`) to map demo keys, sent as an `X-API-Key` header, to a role and a mock user ID:
 
-| Endpoint | No `ROLE_KEYS` (current deployment) | With `ROLE_KEYS` |
+| Endpoint | No `ROLE_KEYS` | With `ROLE_KEYS` (current deployment) |
 |---|---|---|
 | `/predict` | Open | Open (backward compatible) |
 | `/explain`, `/assistant` | Open, logged as `anonymous` | `discharge_staff` key required |
