@@ -39,7 +39,7 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 | 8. Gemini LLM provider; LLM request carries no patient data | Done, on master (Render: `gemini-3.5-flash-lite`, `LLM_TIMEOUT_SECONDS=20`, `ROLE_KEYS` set) |
 | 9. Retry Gemini once on HTTP 503 (not on 429 or timeouts) | Done, on master |
 | 10. Mock sign-in page (pick a role; Switch role in the sidebar) | Done, on master |
-| Test report refresh for stages 8–10 (TC-U8, U9, I9–I11; live test checks the 401) | Done, on `ai-discharge-support` (not merged) |
+| Test report refresh for stages 8–10 (TC-U8, U9, I9–I11; live test checks the 401) | Done, on master |
 
 ## Key decisions
 
