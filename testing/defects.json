@@ -134,6 +134,33 @@
       "found_by": "TC-P3 cold-start test (this testing lab)",
       "fix": "README limitation added: the first request after the service has been idle can take about a minute.",
       "fixed_in": "commit adding this report"
+    },
+    {
+      "id": "D16",
+      "area": "Assistant (Gemini)",
+      "severity": "Low",
+      "defect": "A single HTTP 503 from Gemini (Google's servers briefly overloaded) sent the assistant straight to rule-based mode, although a retry a moment later would usually succeed. The fallback itself worked as designed.",
+      "found_by": "Using the live app: an answer showed 'LLM unavailable (Gemini returned HTTP 503 (UNAVAILABLE)); used rule-based mode.'",
+      "fix": "Retry once after a 1 s pause on 503 only, if enough of the time limit is left; quota errors (429) are never retried.",
+      "fixed_in": "1f79888"
+    },
+    {
+      "id": "D17",
+      "area": "Streamlit sign-in page",
+      "severity": "Low",
+      "defect": "After choosing a role, the faded sign-in cards stayed on screen while the patient queue loaded.",
+      "found_by": "Manual check in the browser",
+      "fix": "The whole sign-in page sits in one top-level container, so the next page replaces it at once.",
+      "fixed_in": "11c3e21 (caught before commit)"
+    },
+    {
+      "id": "D18",
+      "area": "Streamlit sign-in page",
+      "severity": "Low",
+      "defect": "On a phone-width screen the role cards were squeezed side by side, and their headings showed link icons.",
+      "found_by": "Manual check in the browser at mobile width",
+      "fix": "Bordered columns that stack on narrow screens; headings without anchor links.",
+      "fixed_in": "11c3e21 (caught before commit)"
     }
   ],
   "corrected_tests": [
@@ -199,6 +226,27 @@
       "problem": "Could not reconnect to a second headless Chrome instance; the run was interrupted before both themes were checked on the live app.",
       "correction": "Not completed. Light mode was confirmed on the live app (new sidebar navigation present); both themes were verified locally with screenshots.",
       "when": "4cc8b16"
+    },
+    {
+      "id": "C10",
+      "test": "tests/conftest.py",
+      "problem": "Once a developer's .env held a real Gemini key, main would load it at import, so assistant tests could call the real API: results would depend on the network and use up the daily quota.",
+      "correction": "conftest.py sets LLM_PROVIDER=none and an empty key before importing main; Gemini tests fake the HTTP call, and test_tests_never_load_a_real_llm_provider checks this.",
+      "when": "53ade8f"
+    },
+    {
+      "id": "C11",
+      "test": "tests/test_app.py (app fixture and sign_in helper)",
+      "problem": "With the new sign-in page the app opens signed out, so every queue and dashboard test would start on the sign-in page; the sign_in helper chose a sidebar role dropdown that no longer exists.",
+      "correction": "The app fixture starts signed in as discharge staff, a signed_out_app fixture starts on the sign-in page, and sign_in clicks Switch role and the role's Continue button.",
+      "when": "11c3e21"
+    },
+    {
+      "id": "C12",
+      "test": "tests/test_live.py::test_cold_start_live_render_api",
+      "problem": "Failed in this run with 401 on /explain: it was written before role keys were switched on for the live API, so it called /explain without a key. The API was behaving as designed.",
+      "correction": "Now asserts that /explain without a key is refused (401), checking role-based access on the live service, and times /explain only when STAFF_API_KEY is set. The key is never written to the results.",
+      "when": "commit adding this report"
     }
   ]
 }

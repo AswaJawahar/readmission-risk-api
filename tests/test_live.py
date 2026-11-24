@@ -4,6 +4,10 @@ Skipped unless RUN_LIVE_TESTS=1, so normal test runs never touch the network. Re
 tier can put an idle service to sleep; the first request then includes the wake-up time. The
 test can't force a cold start, so it records the first-request time and reports whether it
 looked cold (over 5 s) or warm. Measurements go to testing/results/live.json.
+
+The live API has role keys switched on, so /explain needs the discharge-staff key. The test
+checks that /explain without a key is refused (401), and times /explain only when the key is
+in the STAFF_API_KEY environment variable. The key itself is never written to the results.
 """
 import json
 import os
@@ -43,10 +47,18 @@ def test_cold_start_live_render_api():
         body = response.json()
         assert body["readmission_risk_score"] == 0.782 and body["risk_tier"] == "High"
 
-    t = time.perf_counter()
-    explained = requests.post(f"{LIVE_API}/explain", json=TEST_SET_TOP_ROW, timeout=30)
-    explain_s = time.perf_counter() - t
-    assert explained.status_code == 200
+    # Role-based access on the live service: no key, no explanation
+    no_key = requests.post(f"{LIVE_API}/explain", json=TEST_SET_TOP_ROW, timeout=30)
+    assert no_key.status_code == 401
+
+    explain_s = None
+    staff_key = os.environ.get("STAFF_API_KEY")
+    if staff_key:
+        t = time.perf_counter()
+        explained = requests.post(f"{LIVE_API}/explain", json=TEST_SET_TOP_ROW, timeout=30,
+                                  headers={"X-API-Key": staff_key})
+        explain_s = time.perf_counter() - t
+        assert explained.status_code == 200
 
     result = {
         "api": LIVE_API,
@@ -54,7 +66,8 @@ def test_cold_start_live_render_api():
         "first_response_seconds": round(first_s, 2),
         "looked_cold": first_s > 5,
         "warm_predict_seconds": [round(s, 2) for s in warm],
-        "explain_seconds": round(explain_s, 2),
+        "explain_without_key_status": no_key.status_code,
+        "explain_seconds": None if explain_s is None else round(explain_s, 2),
         "limits": {"first_response_s": FIRST_RESPONSE_LIMIT_S, "warm_s": WARM_LIMIT_S},
     }
     RESULTS.mkdir(parents=True, exist_ok=True)
@@ -64,4 +77,5 @@ def test_cold_start_live_render_api():
         f.write(json.dumps(result) + "\n")
 
     assert first_s < FIRST_RESPONSE_LIMIT_S
-    assert max(warm) < WARM_LIMIT_S and explain_s < WARM_LIMIT_S
+    assert max(warm) < WARM_LIMIT_S
+    assert explain_s is None or explain_s < WARM_LIMIT_S

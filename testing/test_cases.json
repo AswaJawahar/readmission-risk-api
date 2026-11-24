@@ -144,9 +144,9 @@
     {
       "id": "TC-P3", "type": "Performance", "requirement": "NFR Performance (deployed service)",
       "description": "Cold start against the live Render API, then warm requests.",
-      "steps": "1. GET / on the live API and time the first response. 2. Time 3 /predict calls and 1 /explain call.",
-      "input": "Live API https://readmission-risk-api-oyvy.onrender.com, top test-set encounter",
-      "expected": "First response under 120 s (wake-up allowance); warm calls under 5 s; score 0.782, tier High.",
+      "steps": "1. GET / on the live API and time the first response. 2. Time 3 /predict calls. 3. POST /explain without a key. 4. If STAFF_API_KEY is set, time 1 /explain call with it.",
+      "input": "Live API https://readmission-risk-api-oyvy.onrender.com (role keys on), top test-set encounter",
+      "expected": "First response under 120 s (wake-up allowance); warm calls under 5 s; score 0.782, tier High; /explain without a key refused with 401.",
       "measurement": "live",
       "tests": ["tests/test_live.py::test_cold_start_live_render_api"]
     },
@@ -166,6 +166,60 @@
       "expected": "status refused, no items, provider never called.",
       "tests": ["tests/test_assistant.py::test_out_of_scope_questions_are_refused_without_calling_the_llm",
                 "tests/test_app.py::test_out_of_scope_question_is_refused"]
+    },
+    {
+      "id": "TC-U8", "type": "Unit", "requirement": "NFR Privacy: no patient data sent to the LLM",
+      "description": "The LLM request carries only the question and the retrieved excerpts: no patient fields, factors, score or tier. Contact details and patient IDs typed into the question are redacted.",
+      "steps": "1. Fake provider records what it is sent. 2. Ask with and without a question for two patients. 3. Ask a question containing an email, a phone number and a patient ID.",
+      "input": "Top test-set encounter and app defaults; 'What education should patient PT-1891 get? Email me at ... or call 555-123-4567'",
+      "expected": "Request keys are exactly 'excerpts' and 'question'; excerpts match the knowledge base word for word; no factor description, score or tier appears; email, phone and patient ID are replaced by [redacted ...] labels.",
+      "tests": ["tests/test_assistant.py::test_llm_request_contains_no_patient_information",
+                "tests/test_assistant.py::test_prompt_redacts_contact_details_and_patient_ids"]
+    },
+    {
+      "id": "TC-U9", "type": "Unit", "requirement": "NFR AI reliability (retry a temporarily overloaded LLM)",
+      "description": "Gemini is retried once on HTTP 503 (servers briefly overloaded), within the overall time limit; quota (429) and other errors are not retried.",
+      "steps": "Fake HTTP replies: 503 then success; 503 twice; 429, 500 or 400 once; 503 with a 1.5 s time limit.",
+      "input": "Faked Gemini HTTP responses (no real LLM); time limit 20 s unless stated",
+      "expected": "503 then success: 2 calls, one 1 s pause, second call's timeout at most 19 s. Two 503s: error 'HTTP 503 (UNAVAILABLE) after one retry'. 429/500/400: 1 call, no pause. 1.5 s limit: no retry.",
+      "tests": ["tests/test_assistant.py::test_gemini_retries_once_after_a_503",
+                "tests/test_assistant.py::test_gemini_gives_up_after_a_second_503",
+                "tests/test_assistant.py::test_gemini_does_not_retry_other_errors",
+                "tests/test_assistant.py::test_gemini_does_not_retry_without_enough_time_left"]
+    },
+    {
+      "id": "TC-I9", "type": "Integration", "requirement": "FR-4 Suggest items; FR-5 Cite sources; NFR AI reliability (fallback)",
+      "description": "The assistant works end to end with the Gemini provider: a valid reply is shown in llm mode with its citations; any Gemini failure falls back to rule-based items without exposing the API key.",
+      "steps": "1. Fake Gemini reply citing a retrieved excerpt. 2. Fake 429, network error, empty reply and invalid JSON. 3. Fake 503 followed by a valid reply.",
+      "input": "Faked Gemini HTTP responses; demo key 'secret-123'",
+      "expected": "Valid reply: mode llm, item cites the retrieved excerpt, request holds only excerpts and question. Failures: mode rule_based_fallback with items; the key never appears in the response. 503 then reply: mode llm.",
+      "tests": ["tests/test_assistant.py::test_gemini_end_to_end_with_a_faked_reply",
+                "tests/test_assistant.py::test_gemini_failures_fall_back_to_rule_based_without_leaking_the_key",
+                "tests/test_assistant.py::test_assistant_uses_the_llm_after_a_retried_503"]
+    },
+    {
+      "id": "TC-I10", "type": "Integration", "requirement": "FR-1 Load patient data; NFR Usability (minimal clicks)",
+      "description": "The patient queue opens sorted by risk, and staff can narrow it by patient ID, risk tier and discharge destination.",
+      "steps": "1. Open the queue. 2. Filter tier High. 3. Search a patient ID in lower case. 4. Combine destination Home with tier High, then Clear filters. 5. Search an ID that doesn't exist.",
+      "input": "25-patient demo queue (de-identified test-set encounters plus one hand-made hospice case)",
+      "expected": "25 rows, highest score first; High filter shows 8; search finds exactly that patient ('Showing 1 of 25'); combined filters narrow further and Clear filters restores 25; no match shows 'No patients match these filters.'",
+      "tests": ["tests/test_app.py::test_queue_is_the_main_screen_sorted_by_risk",
+                "tests/test_app.py::test_tier_filter",
+                "tests/test_app.py::test_search_by_patient_id",
+                "tests/test_app.py::test_dropdown_filters_combine_and_clear",
+                "tests/test_app.py::test_filters_with_no_match_show_a_message"]
+    },
+    {
+      "id": "TC-I11", "type": "Integration", "requirement": "NFR Role-based access (mock sign-in)",
+      "description": "The app opens on a mock sign-in page; each role sees only its own pages, and Switch role returns to sign-in and forgets the open patient.",
+      "steps": "1. Open the app. 2. Continue as discharge staff. 3. Continue as auditor. 4. Open a patient, then Switch role. 5. With role keys set, open a patient as staff and then sign in as auditor.",
+      "input": "AppTest with the in-process API; demo keys for discharge_staff and auditor",
+      "expected": "Sign-in page shows two role buttons and says it is not authentication, with no patient data. Staff land on Patient queue, auditors on Audit log (showing nurse-01's /explain entries, no queue). Switch role clears the role, patient and what-if scenario.",
+      "tests": ["tests/test_app.py::test_app_opens_on_the_sign_in_page",
+                "tests/test_app.py::test_signing_in_as_staff_opens_the_queue",
+                "tests/test_app.py::test_signing_in_as_auditor_opens_the_audit_log",
+                "tests/test_app.py::test_switch_role_returns_to_sign_in_and_forgets_the_patient",
+                "tests/test_app.py::test_auditor_sees_the_audit_log_not_patients"]
     }
   ]
 }

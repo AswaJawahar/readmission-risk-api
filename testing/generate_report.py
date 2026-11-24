@@ -69,7 +69,11 @@ def measurement_text(kind):
                 f"startup {m['startup_seconds']} s.")
     text = (f" Latest run ({m['checked_at_utc']}): first response {m['first_response_seconds']} s "
             f"({'service was asleep' if m['looked_cold'] else 'service was already awake'}); warm /predict "
-            f"{', '.join(str(s) for s in m['warm_predict_seconds'])} s; /explain {m['explain_seconds']} s.")
+            f"{', '.join(str(s) for s in m['warm_predict_seconds'])} s; ")
+    if "explain_without_key_status" in m:
+        text += f"/explain without a key refused with HTTP {m['explain_without_key_status']}; "
+    text += (f"/explain with the staff key {m['explain_seconds']} s." if m["explain_seconds"] is not None
+             else "/explain with the staff key not timed (STAFF_API_KEY not set for this run).")
     history = RESULTS / "live_history.jsonl"
     if history.exists():
         runs = [json.loads(line) for line in history.read_text(encoding="utf-8").splitlines() if line.strip()]
