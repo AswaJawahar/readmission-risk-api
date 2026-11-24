@@ -55,7 +55,7 @@ The API accepts 14 input fields, one-hot encodes them, and aligns the result to 
 
 ## The app
 
-The Streamlit app (`app.py`, pages in `app_pages/`, shared code in `ui.py`) has three pages:
+The Streamlit app (`app.py`, pages in `app_pages/`, shared code in `ui.py`) opens on a mock sign-in page where the visitor picks a role (see [Audit logging and access](#audit-logging-and-access-mock)). Discharge staff then see three pages:
 
 - **Patient queue (main screen).** 25 demo patients from `demo/patient_queue.json`, highest risk first, with a filter bar: search by patient ID, risk-tier chips, and age group, primary diagnosis and discharge destination dropdowns (empty = all), plus a "Showing N of 25" count and a Clear filters button. Each row shows the tier and how the score compares with the average (for example "about 2.3× the average"). Selecting a row opens that patient's dashboard. The queue holds 24 de-identified test-set encounters (8 per tier, only the 14 model fields, fake IDs such as `PT-9943`) and one hand-made hospice case that shows the out-of-scope check. `python build_patient_queue.py` regenerates the file (it needs the CSV).
 - **Dashboard.** Leads with the tier and a comparison, e.g. "High risk — about 7.0× the average readmission rate (top 10% of patients)", with the raw score in smaller text ("Score 78% (average: 11%)") and the tier's actual test-set readmission rate. "Average" is the test-set 30-day readmission rate (11.2%). It then shows the factors behind the score (worded as "associated with a higher/lower score", not as causes), the summary sentence, cited discharge-planning considerations, a question box with suggested questions, the supporting evidence with review status, and test-set performance.
@@ -177,9 +177,9 @@ Settings come from environment variables or a gitignored `.env` file (see `.env.
 | `/audit` | Unavailable (403) | `auditor` key required |
 | `/`, `/model-info`, `/sources`, `/assistant/config` | Open | Open |
 
-An unknown key is rejected with 401. In the Streamlit app, a "Signed in as (demo)" picker in the sidebar switches between discharge staff (patient queue, What-if, About) and auditor (Audit log, About); the app sends the role's key from `STAFF_API_KEY` or `AUDITOR_API_KEY` (environment or Streamlit secrets).
+An unknown key is rejected with 401. In the Streamlit app, a sign-in page asks the visitor to choose a role before anything else is shown: discharge staff (patient queue, What-if, About) or auditor (Audit log, About). The sidebar then shows "Signed in as … (demo)" with a Switch role button, which returns to the sign-in page and forgets the open patient and any what-if scenario; the app sends the role's key from `STAFF_API_KEY` or `AUDITOR_API_KEY` (environment or Streamlit secrets).
 
-**What this is not.** This is a mock for the proof of concept, not real security: the keys are shared demo tokens, the sign-in picker can be switched by anyone using the app, and there are no user accounts or passwords. Traffic is encrypted in transit only because Render and Streamlit Community Cloud serve over HTTPS. Logs are stored unencrypted on the API server's disk, and on Render's free tier they are lost whenever the service restarts or redeploys.
+**What this is not.** This is a mock for the proof of concept, not real security: the keys are shared demo tokens, anyone using the app can choose either role on the sign-in page, and there are no user accounts or passwords. Traffic is encrypted in transit only because Render and Streamlit Community Cloud serve over HTTPS. Logs are stored unencrypted on the API server's disk, and on Render's free tier they are lost whenever the service restarts or redeploys.
 
 ## Running the tests
 

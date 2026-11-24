@@ -25,8 +25,7 @@ def route(url):
     return "/" + url.split("/", 3)[3]
 
 
-@pytest.fixture
-def app(monkeypatch):
+def start_app(monkeypatch, role):
     # Send the app's API calls to the in-process API instead of Render
     monkeypatch.setattr(requests, "post", lambda url, json, timeout, headers=None:
                         api_client.post(route(url), json=json, headers=headers))
@@ -34,9 +33,23 @@ def app(monkeypatch):
                         api_client.get(route(url), headers=headers))
     st.cache_data.clear()
     at = AppTest.from_file("../app.py", default_timeout=60)
+    if role:
+        at.session_state["role"] = role
     at.run()
     assert not at.exception
     return at
+
+
+@pytest.fixture
+def app(monkeypatch):
+    """The app, already signed in as discharge staff."""
+    return start_app(monkeypatch, "discharge_staff")
+
+
+@pytest.fixture
+def signed_out_app(monkeypatch):
+    """The app as a new visitor sees it."""
+    return start_app(monkeypatch, None)
 
 
 def open_patient(at, patient_id):
@@ -252,9 +265,44 @@ def keys(monkeypatch):
 
 
 def sign_in(at, role):
-    at.selectbox(key="role").set_value(role).run()
+    """Signs in from the sign-in page, switching role first if already signed in."""
+    if at.session_state["role"] is not None:
+        at.button(key="switch_role").click().run()
+        assert not at.exception
+    at.button(key=f"sign_in_{role}").click().run()
     assert not at.exception
     return at
+
+
+def test_app_opens_on_the_sign_in_page(signed_out_app):
+    at = signed_out_app
+    assert at.title[0].value == "Discharge support"
+    assert [b.label for b in at.button] == ["Continue as discharge staff", "Continue as auditor"]
+    assert "not authentication" in at.info[0].value and "no user accounts or passwords" in at.info[0].value
+    # No patient data or audit log before a role is chosen
+    assert not at.dataframe and "Patient queue" not in [t.value for t in at.title]
+
+
+def test_signing_in_as_staff_opens_the_queue(signed_out_app):
+    sign_in(signed_out_app, "discharge_staff")
+    assert signed_out_app.title[0].value == "Patient queue"
+    assert "Signed in as **Discharge staff** (demo)" in [m.value for m in signed_out_app.sidebar.markdown]
+
+
+def test_signing_in_as_auditor_opens_the_audit_log(signed_out_app):
+    sign_in(signed_out_app, "auditor")
+    assert signed_out_app.title[0].value == "Audit log"
+    assert "Signed in as **Auditor** (demo)" in [m.value for m in signed_out_app.sidebar.markdown]
+
+
+def test_switch_role_returns_to_sign_in_and_forgets_the_patient(app):
+    open_patient(app, TOP_PATIENT)
+    app.session_state["what_if_fields"] = {"age": "[70-80)"}
+    app.button(key="switch_role").click().run()
+    assert not app.exception
+    assert app.title[0].value == "Discharge support"
+    assert app.session_state["role"] is None and app.session_state["selected_patient"] is None
+    assert "what_if_fields" not in app.session_state
 
 
 def test_staff_dashboard_works_when_keys_are_required(keys, app, temporary_audit_log):

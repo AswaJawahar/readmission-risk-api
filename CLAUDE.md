@@ -37,7 +37,8 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 | MIS 7623 Testing Lab: test cases, report, defect log (`testing/`) | Done, on master |
 | Queue filter bar (patient ID search, tier, age, diagnosis, destination) | Done, on master |
 | 8. Gemini LLM provider; LLM request carries no patient data | Done, on master (Render: `gemini-3.5-flash-lite`, `LLM_TIMEOUT_SECONDS=20`, `ROLE_KEYS` set) |
-| 9. Retry Gemini once on HTTP 503 (not on 429 or timeouts) | Done, on `ai-discharge-support` (not merged) |
+| 9. Retry Gemini once on HTTP 503 (not on 429 or timeouts) | Done, on master |
+| 10. Mock sign-in page (pick a role; Switch role in the sidebar) | Done, on `ai-discharge-support` (not merged) |
 
 ## Key decisions
 
@@ -74,3 +75,6 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 - The Streamlit app reads `API_URL` (environment or secrets), defaulting to the Render URL.
 - Streamlit tables draw on a canvas: AppTest can't click rows, so tests open patients via
   `session_state["selected_patient"]`; real clicks were checked in headless Chrome.
+- The app opens on the sign-in page (`role` is None). App tests start signed in as staff by setting
+  `session_state["role"]` (the `app` fixture); `signed_out_app` starts on the sign-in page. The sign-in
+  page sits in one top-level container so the next page replaces it at once while the queue loads.

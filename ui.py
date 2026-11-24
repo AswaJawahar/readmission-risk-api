@@ -69,6 +69,32 @@ def role_key(role):
     return setting(ROLE_KEY_SETTINGS[role])
 
 
+ROLES = {
+    "discharge_staff": {
+        "label": "Discharge staff", "icon": ":material/groups:",
+        "description": "Work through the patient queue: open a patient's risk dashboard and explanation, "
+                       "ask the discharge-planning assistant, and try what-if scenarios.",
+    },
+    "auditor": {
+        "label": "Auditor", "icon": ":material/history:",
+        "description": "Review the audit log: who used which endpoint, when, and the outcome. "
+                       "Auditors don't see patient records.",
+    },
+}
+
+
+def sign_in(role):
+    """Mock sign-in: records the chosen role for this browser session only."""
+    st.session_state.role = role
+
+
+def sign_out():
+    """Back to the sign-in page, forgetting the open patient and any what-if scenario."""
+    st.session_state.role = None
+    st.session_state.selected_patient = None
+    st.session_state.pop("what_if_fields", None)
+
+
 def _headers(key):
     return {"X-API-Key": key} if key else {}
 
