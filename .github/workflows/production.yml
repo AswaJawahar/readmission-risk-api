@@ -1,0 +1,50 @@
+name: Production pipeline
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Unit, integration and performance tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Run the test suite
+        run: python -m pytest -q
+      - name: Build the test report
+        if: always()
+        run: python testing/generate_report.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report
+          path: |
+            testing/test_report.html
+            testing/test_cases.xlsx
+
+  production-check:
+    name: Check the live production service
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://readmission-risk-api.streamlit.app/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Cold-start and access test against Render
+        env:
+          RUN_LIVE_TESTS: "1"
+          STAFF_API_KEY: ${{ secrets.STAFF_API_KEY }}
+        run: python -m pytest tests/test_live.py -v

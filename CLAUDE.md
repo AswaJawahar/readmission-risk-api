@@ -40,6 +40,7 @@ Cloud), both deployed from `master`. Work happens on `ai-discharge-support`.
 | 9. Retry Gemini once on HTTP 503 (not on 429 or timeouts) | Done, on master |
 | 10. Mock sign-in page (pick a role; Switch role in the sidebar) | Done, on master |
 | Test report refresh for stages 8–10 (TC-U8, U9, I9–I11; live test checks the 401) | Done, on master |
+| GitHub Actions production pipeline (`.github/workflows/production.yml`: tests, then live Render check) | Done, on master |
 
 ## Key decisions
 
