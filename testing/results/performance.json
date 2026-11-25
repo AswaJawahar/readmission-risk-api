@@ -1,15 +1,15 @@
 {
   "requests": 50,
-  "startup_seconds": 3.89,
-  "rss_after_startup_mb": 211.2,
-  "rss_peak_mb": 216.3,
+  "startup_seconds": 3.37,
+  "rss_after_startup_mb": 209.1,
+  "rss_peak_mb": 214.3,
   "latency_ms": {
-    "median_all": 26.7,
-    "p95_all": 40.8,
-    "max_all": 65.7,
-    "median_predict": 34.0,
-    "median_explain": 23.3,
-    "median_assistant": 26.0
+    "median_all": 23.8,
+    "p95_all": 40.7,
+    "max_all": 63.0,
+    "median_predict": 18.3,
+    "median_explain": 23.7,
+    "median_assistant": 27.2
   },
   "limits": {
     "memory_mb": 512,

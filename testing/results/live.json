@@ -1,12 +1,12 @@
 {
   "api": "https://readmission-risk-api-oyvy.onrender.com",
-  "checked_at_utc": "2026-11-24T21:59:26+00:00",
-  "first_response_seconds": 0.28,
-  "looked_cold": false,
+  "checked_at_utc": "2026-11-25T18:22:27+00:00",
+  "first_response_seconds": 52.64,
+  "looked_cold": true,
   "warm_predict_seconds": [
-    0.15,
+    0.76,
     0.14,
-    0.14
+    0.13
   ],
   "explain_without_key_status": 401,
   "explain_seconds": null,
