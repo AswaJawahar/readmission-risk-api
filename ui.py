@@ -118,7 +118,11 @@ def post(path, payload_json, key=None):
     return _post(path, json.loads(payload_json), key)
 
 
-@st.cache_data(ttl="1h", show_spinner=False)
+# The free Render server sleeps when idle, so the first request after a break can take about a minute
+WAKE_NOTE = "If the server has been idle, this can take about a minute while it wakes up."
+
+
+@st.cache_data(ttl="1h", show_spinner=f"Connecting to the server... {WAKE_NOTE}")
 def get(path):
     status, body = _get(path)
     if status != 200:
@@ -128,7 +132,8 @@ def get(path):
 
 def audit_entries(limit=500):
     """Not cached: the auditor should always see the latest entries."""
-    return _get(f"/audit?limit={limit}", role_key("auditor"))
+    with st.spinner(f"Loading the audit log... {WAKE_NOTE}"):
+        return _get(f"/audit?limit={limit}", role_key("auditor"))
 
 
 def explain(fields):

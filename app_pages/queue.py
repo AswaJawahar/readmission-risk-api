@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from ui import (comparison, describe_patient, error_message, error_type, get, load_queue, render_dashboard,
-                score_queue, selected_row, tier_cell_style)
+                score_queue, selected_row, tier_cell_style, WAKE_NOTE)
 
 patients = load_queue()
 by_id = {p["id"]: p for p in patients}
@@ -39,7 +39,7 @@ info = get("/model-info")
 base_rate = info["performance"]["base_rate"]
 labels = info["discharge_codes"]["labels"]
 
-with st.spinner("Scoring the queue..."):
+with st.spinner(f"Scoring the queue... {WAKE_NOTE}"):
     results = score_queue(json.dumps(patients, sort_keys=True))
 
 rows = []
