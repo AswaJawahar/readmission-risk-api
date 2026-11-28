@@ -151,6 +151,15 @@ def error_type(body):
 
 # ---- demo queue ------------------------------------------------------------
 
+def selected_row(selection):
+    """Row position chosen in the queue table: a ticked row, or the row of a clicked cell."""
+    if selection.get("rows"):
+        return selection["rows"][0]
+    if selection.get("cells"):
+        return selection["cells"][0][0]
+    return None
+
+
 @st.cache_data(show_spinner=False)
 def load_queue():
     return json.loads(QUEUE_PATH.read_text(encoding="utf-8"))["patients"]

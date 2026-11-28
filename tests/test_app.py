@@ -123,6 +123,19 @@ def test_filters_with_no_match_show_a_message(app):
     assert "No patients match these filters." in all_text(app)
 
 
+def test_clicking_any_cell_or_the_checkbox_picks_that_row():
+    # AppTest can't click the canvas table, so the selection the browser sends is checked directly
+    assert ui.selected_row({"rows": [], "columns": [], "cells": [(3, "Risk tier")]}) == 3
+    assert ui.selected_row({"rows": [2], "columns": [], "cells": []}) == 2
+    assert ui.selected_row({"rows": [], "columns": [], "cells": []}) is None
+
+
+def test_queue_table_opens_patients_from_any_cell(app):
+    table = app.dataframe[0].proto
+    assert set(table.selection_mode) == {table.SINGLE_ROW, table.SINGLE_CELL}
+    assert "Click a patient to open their dashboard." in all_text(app)
+
+
 # ---- dashboard ---------------------------------------------------------------
 
 def test_dashboard_leads_with_tier_and_comparison(app):

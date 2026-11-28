@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from ui import (comparison, describe_patient, error_message, error_type, get, load_queue, render_dashboard,
-                score_queue, tier_cell_style)
+                score_queue, selected_row, tier_cell_style)
 
 patients = load_queue()
 by_id = {p["id"]: p for p in patients}
@@ -21,9 +21,9 @@ def close_patient():
 
 
 def open_selected():
-    rows = st.session_state[table_key].selection.rows
-    if rows:
-        st.session_state.selected_patient = st.session_state.queue_ids[rows[0]]
+    row = selected_row(st.session_state[table_key].selection)
+    if row is not None:
+        st.session_state.selected_patient = st.session_state.queue_ids[row]
 
 
 if selected in by_id:
@@ -100,8 +100,8 @@ queue = queue[mask].drop(columns="_score").reset_index(drop=True)
 st.session_state.queue_ids = queue["Patient"].tolist()
 
 shown_col, clear_col = st.columns([4, 1], vertical_alignment="center")
-shown_col.caption(f"Showing {len(queue)} of {len(patients)} demo patients, highest risk first. Select a row "
-                  f"to open the dashboard. Average = the test-set 30-day readmission rate ({base_rate:.1%}).")
+shown_col.caption(f"Showing {len(queue)} of {len(patients)} demo patients, highest risk first. Click a "
+                  f"patient to open their dashboard. Average = the test-set 30-day readmission rate ({base_rate:.1%}).")
 clear_col.button("Clear filters", icon=":material/filter_alt_off:", on_click=clear_filters,
                  disabled=len(queue) == len(patients), width="stretch")
 if queue.empty:
@@ -112,7 +112,8 @@ if queue.empty:
 styled = queue.style.map(tier_cell_style, subset=["Risk tier"])
 # Tall enough to show every row without an inner scrollbar
 st.dataframe(styled, hide_index=True, key=table_key, on_select=open_selected, placeholder="—",
-             selection_mode="single-row", height=35 * (len(queue) + 1) + 3, column_config={
+             # Clicking any cell opens the patient; the row checkbox works too
+             selection_mode=["single-row", "single-cell"], height=35 * (len(queue) + 1) + 3, column_config={
                  "Score": st.column_config.ProgressColumn("Score", format="%.0f%%", min_value=0, max_value=100,
                                                           color="#64748b", width="small",
                                                           help="Predicted 30-day readmission probability"),
